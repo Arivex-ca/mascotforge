@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MascotForge V2 : Studio</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="barre-haut">
+  <div>
+    <h1>MascotForge <span class="badge-v2">V2</span></h1>
+    <p class="sous-titre">Studio de génération de mascottes animées par IA.</p>
+  </div>
+  <div class="compteur-cout" id="compteur-cout" title="Coût cumulé ce mois-ci (borne Arivex)">
+    <span class="cout-ligne"><strong id="cout-depense">…</strong>&nbsp;/ <span id="cout-plafond">…</span> ce mois-ci</span>
+    <span class="cout-sous" id="cout-mascottes"></span>
+  </div>
+</header>
+
+<div id="bandeau-erreur" class="bandeau-erreur cache" role="alert">
+  <span id="bandeau-texte"></span>
+  <button id="bandeau-fermer" type="button" aria-label="Fermer le message">×</button>
+</div>
+
+<main>
+
+  <section id="etape-1" aria-label="Étape 1 : personnage">
+    <h2><span class="num">1</span>Personnage</h2>
+    <div class="onglets" role="tablist">
+      <button type="button" id="onglet-upload" class="onglet actif" role="tab" aria-selected="true">Uploader une image</button>
+      <button type="button" id="onglet-prompt" class="onglet" role="tab" aria-selected="false">Décrire en prompt</button>
+    </div>
+
+    <div id="panneau-upload" class="panneau-onglet" role="tabpanel">
+      <label class="zone-fichier" for="fichier">
+        <input type="file" id="fichier" accept="image/png,image/jpeg,image/webp" hidden>
+        <span class="zone-texte" id="zone-texte">Clique pour choisir une image (PNG, JPEG ou WebP)</span>
+      </label>
+      <button type="button" class="primaire" id="btn-upload" disabled>Uploader et créer le personnage</button>
+    </div>
+
+    <div id="panneau-prompt" class="panneau-onglet cache" role="tabpanel">
+      <label class="etiquette" for="prompt">Décris la mascotte à générer</label>
+      <textarea id="prompt" rows="4" placeholder="Exemple : un renard roux aux yeux ronds, style cartoon 2D, couleurs vives, sur fond uni"></textarea>
+      <button type="button" class="primaire" id="btn-prompt">Générer le personnage</button>
+    </div>
+
+    <div id="apercu-personnage" class="apercu-personnage cache">
+      <img id="img-personnage" alt="Aperçu du personnage créé">
+      <p class="muted" id="info-personnage">Personnage prêt. Tu peux lancer la génération des états.</p>
+    </div>
+  </section>
+
+  <section id="etape-2" class="verrouillee" aria-label="Étape 2 : génération">
+    <h2><span class="num">2</span>Génération</h2>
+    <p class="muted">La génération des 6 états prend quelques minutes. Tu peux laisser cette page ouverte, la progression s'affiche en temps réel ci-dessous.</p>
+    <div class="ligne">
+      <button type="button" class="primaire" id="btn-generer" disabled>Générer les 6 états</button>
+      <span class="muted" id="statut-job"></span>
+    </div>
+    <ul id="liste-etats" class="liste-etats"></ul>
+  </section>
+
+  <section id="etape-3" class="verrouillee" aria-label="Étape 3 : aperçu">
+    <h2><span class="num">3</span>Aperçu</h2>
+    <p class="muted verrouille-msg">Termine la génération pour voir les 6 clips ici.</p>
+    <div id="grille-videos" class="grille-videos"></div>
+  </section>
+
+  <section id="etape-4" class="verrouillee" aria-label="Étape 4 : export">
+    <h2><span class="num">4</span>Export</h2>
+    <p class="muted verrouille-msg">Le dossier sera disponible quand la génération sera terminée.</p>
+    <p class="muted">Le dossier contient les 6 vidéos MP4 et le manifest du widget.</p>
+    <div class="ligne">
+      <button type="button" class="primaire" id="btn-export" disabled>Exporter le dossier</button>
+      <a id="lien-telechargement" class="lien-telechargement cache" href="#">Télécharger le zip</a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pied">
+  <span class="muted">MascotForge V2, brique produit Arivex. Coût estimé par mascotte : environ 1,50 $.</span>
+</footer>
+
+<script src="studio.js"></script>
+</body>
+</html>

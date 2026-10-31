@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mascot Avatar Widget Demo</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 24px;
+    background: #0b0b0f; color: #e4e4e7;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.02em; }
+  .hint { font-size: 13px; color: #71717a; margin: -12px 0 0; }
+  mascot-avatar { width: 320px; height: 320px; cursor: pointer; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .controls button {
+    padding: 10px 16px; border-radius: 999px; border: 1px solid #3f3f46;
+    background: #18181b; color: #e4e4e7; font-size: 14px; cursor: pointer;
+  }
+  .controls button:hover { background: #27272a; border-color: #71717a; }
+  .controls button:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
+  .state-line { font-size: 14px; color: #a1a1aa; }
+  .state-line strong { color: #fff; font-weight: 600; }
+  .event-log {
+    width: min(560px, 90vw); max-height: 160px; overflow-y: auto;
+    background: #131316; border: 1px solid #27272a; border-radius: 8px;
+    padding: 12px 16px; font-family: ui-monospace, monospace; font-size: 12px;
+    color: #a1a1aa; white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+  <h1>Mascot Avatar</h1>
+  <p class="hint">Click the avatar to play the clicked state. Inactivity triggers sleep.</p>
+
+  <mascot-avatar id="avatar" manifest="manifest.exemple.json" sleep-after="60"></mascot-avatar>
+
+  <div class="controls" id="controls">
+    <button data-state="idle">idle</button>
+    <button data-state="talking">talking</button>
+    <button data-state="thinking">thinking</button>
+    <button data-state="clicked">clicked</button>
+    <button data-state="error">error</button>
+    <button data-state="sleeping">sleeping</button>
+    <button data-state="wake">wake</button>
+  </div>
+
+  <div class="state-line">Current state: <strong id="currentState">loading</strong></div>
+  <div class="event-log" id="eventLog" aria-live="polite"></div>
+
+  <script src="mascot-avatar.js"></script>
+  <script>
+    const avatar = document.getElementById("avatar");
+    const currentState = document.getElementById("currentState");
+    const eventLog = document.getElementById("eventLog");
+
+    function log(text) {
+      const line = new Date().toLocaleTimeString() + "  " + text;
+      eventLog.textContent = line + "\n" + eventLog.textContent;
+    }
+
+    document.getElementById("controls").addEventListener("click", (ev) => {
+      const state = ev.target.dataset && ev.target.dataset.state;
+      if (!state) return;
+      if (state === "wake") {
+        avatar.wake();
+      } else {
+        avatar.play(state);
+      }
+    });
+
+    avatar.addEventListener("statechange", (ev) => {
+      currentState.textContent = ev.detail.to;
+      log("statechange " + ev.detail.from + " -> " + ev.detail.to);
+    });
+    avatar.addEventListener("sleep", () => log("sleep"));
+    avatar.addEventListener("wake", () => log("wake"));
+
+    avatar.ready().then(() => {
+      currentState.textContent = avatar.getState();
+      log("ready, state=" + avatar.getState());
+    });
+  </script>
+</body>
+</html>

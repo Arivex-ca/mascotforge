@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>smoke</title></head>
+<body>
+<div id="result">PENDING</div>
+<mascot-avatar id="a" manifest="manifest.exemple.json" sleep-after="3600" parallax="false"></mascot-avatar>
+<script>
+window.__errors = [];
+window.addEventListener("error", (e) => window.__errors.push("error: " + e.message));
+window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejection: " + (e.reason && e.reason.message || e.reason)));
+</script>
+<script src="mascot-avatar.js"></script>
+<script>
+(async () => {
+  const out = [];
+  const ok = (name, cond) => out.push((cond ? "PASS" : "FAIL") + " " + name);
+  const activeVideo = () => document.getElementById("a").shadowRoot.querySelector("video.active");
+  try {
+    const a = document.getElementById("a");
+    await a.ready();
+    ok("ready resolves", true);
+    ok("default state is idle", a.getState() === "idle");
+    ok("6 clips preloaded", a.shadowRoot.querySelectorAll("video").length === 6);
+    const changes = [];
+    a.addEventListener("statechange", (e) => changes.push(e.detail.from + "->" + e.detail.to));
+
+    await a.play("talking");
+    ok("play(talking)", a.getState() === "talking" && !!activeVideo());
+    await a.play("thinking");
+    ok("play(thinking)", a.getState() === "thinking");
+
+    // clicked: one-shot, must return to previous loop state on ended
+    await a.play("clicked");
+    ok("play(clicked) starts", a.getState() === "clicked");
+    ok("clicked clip marked active", activeVideo() && activeVideo().src.includes("clicked.mp4"));
+    activeVideo().dispatchEvent(new Event("ended"));
+    ok("clicked returns to previous (thinking)", a.getState() === "thinking");
+
+    // error: one-shot too, returns to previous
+    await a.play("error");
+    ok("play(error) starts", a.getState() === "error");
+    activeVideo().dispatchEvent(new Event("ended"));
+    ok("error one-shot returns to previous (thinking)", a.getState() === "thinking");
+
+    // unknown state ignored
+    await a.play("bogus-state");
+    ok("unknown state ignored", a.getState() === "thinking");
+
+    // sleeping + wake
+    let slept = false;
+    a.addEventListener("sleep", () => { slept = true; }, { once: true });
+    await a.play("sleeping");
+    ok("play(sleeping)", a.getState() === "sleeping");
+    let woke = false;
+    a.addEventListener("wake", () => { woke = true; }, { once: true });
+    await a.wake();
+    ok("wake() returns to idle", a.getState() === "idle");
+    ok("wake event fired", woke);
+    ok("sleep event NOT fired by play(sleeping)", !slept);
+
+    // click on avatar plays clicked then returns
+    await a.play("idle");
+    a.click();
+    await new Promise((r) => setTimeout(r, 50));
+    ok("avatar click plays clicked", a.getState() === "clicked");
+    activeVideo().dispatchEvent(new Event("ended"));
+    ok("after clicked clip, back to idle", a.getState() === "idle");
+
+    ok("statechange events fired", changes.length >= 8);
+    ok("idle->talking event present", changes.includes("idle->talking"));
+  } catch (e) {
+    out.push("EXCEPTION " + (e && e.message) + " " + (e && e.stack));
+  }
+  document.getElementById("result").textContent =
+    "ERRORS:" + JSON.stringify(window.__errors) + "\n" + out.join("\n");
+})();
+</script>
+</body>
+</html>

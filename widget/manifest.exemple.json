@@ -1,0 +1,1 @@
+{"default_state":"idle","name":"Example Mascot","states":{"clicked":"videos/clicked.mp4","error":"videos/error.mp4","idle":"videos/idle.mp4","sleeping":"videos/sleeping.mp4","talking":"videos/talking.mp4","thinking":"videos/thinking.mp4"}}

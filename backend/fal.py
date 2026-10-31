@@ -1,0 +1,243 @@
+"""Client fal.ai : upload d'image, text-to-image, image-to-video.
+
+Transport principal : le package ``fal-client`` (upload + file d'attente geres).
+Repli : appels REST manuels vers queue.fal.run (``MASCOTFORGE_FAL_TRANSPORT=rest``,
+ou automatiquement si fal-client n'est pas installe).
+
+Toutes les fonctions publiques sont ``async`` et mockables par les tests
+(monkeypatch de ce module). Aucune video reelle n'est generee sans FAL_KEY.
+"""
+from __future__ import annotations
+
+import asyncio
+import os
+from pathlib import Path
+from typing import Any
+
+import httpx
+
+from backend import settings
+
+
+class FalNotConfiguredError(RuntimeError):
+    """Levee quand FAL_KEY est absente (l'API repond 503)."""
+
+
+class FalApiError(RuntimeError):
+    """Levee quand l'appel fal.ai echoue (l'API repond 502)."""
+
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+# ---------------------------------------------------------------------------
+# Prompts video par etat (anglais, style verrouille)
+# ---------------------------------------------------------------------------
+_STYLE_PREFIX = "2D cartoon style, identical character to the input image, "
+_STYLE_SUFFIX = ", no camera movement, flat 2D cartoon look, not photorealistic"
+
+STATE_VIDEO_PROMPTS: dict[str, str] = {
+    "idle": "breathing in and out gently, subtle idle sway, seamless loop",
+    "talking": "mouth opening and closing as if talking cheerfully, slight head bobbing, seamless loop",
+    "thinking": "tapping chin thoughtfully, glancing side to side, pondering expression, seamless loop",
+    "clicked": "happy little hop, waving hello, cheerful bounce, seamless loop",
+    "error": "shaking head no, confused shrug, wobbling in place, seamless loop",
+    "sleeping": "eyes closing, slow deep breathing, head nodding gently, sleepy motion, seamless loop",
+}
+
+STATES: list[str] = list(STATE_VIDEO_PROMPTS.keys())
+
+
+def build_state_prompt(state: str) -> str:
+    """Construit le prompt video verrouille pour un etat."""
+    if state not in STATE_VIDEO_PROMPTS:
+        raise ValueError(f"Etat inconnu : {state!r} (attendus : {', '.join(STATES)})")
+    return _STYLE_PREFIX + STATE_VIDEO_PROMPTS[state] + _STYLE_SUFFIX
+
+
+CHARACTER_PROMPT_PREFIX = (
+    "2D cartoon mascot character, flat vector style, centered, "
+    "plain solid background, full body, "
+)
+
+
+# ---------------------------------------------------------------------------
+# Bas niveau
+# ---------------------------------------------------------------------------
+def _require_key() -> str:
+    key = settings.get_fal_key()
+    if not key:
+        raise FalNotConfiguredError(
+            "FAL_KEY n'est pas configuree : impossible d'appeler fal.ai. "
+            "Ajoutez la variable d'environnement FAL_KEY puis reessayez."
+        )
+    return key
+
+
+def _sdk() -> Any | None:
+    try:
+        import fal_client  # type: ignore[import-not-found]
+
+        return fal_client
+    except ImportError:
+        return None
+
+
+def _use_rest() -> bool:
+    transport = settings.fal_transport()
+    if transport == "rest":
+        return True
+    if transport == "sdk":
+        return False
+    return _sdk() is None  # auto : REST seulement si fal-client manque
+
+
+async def _sdk_submit_and_wait(
+    model: str, arguments: dict[str, Any], timeout_s: int = 900
+) -> dict[str, Any]:
+    sdk = _sdk()
+    if sdk is None:
+        raise FalApiError("Le package fal-client n'est pas installe.")
+    key = _require_key()
+    os.environ.setdefault("FAL_KEY", key)  # fal-client lit FAL_KEY
+
+    def _run() -> dict[str, Any]:
+        handler = sdk.submit(model, arguments=arguments)
+        return handler.get()
+
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(_run), timeout_s)
+    except asyncio.TimeoutError as exc:
+        raise FalApiError(
+            f"Delai depasse ({timeout_s}s) pour le modele {model}."
+        ) from exc
+    except FalApiError:
+        raise
+    except Exception as exc:  # erreur remontee par fal-client
+        raise FalApiError(f"Erreur fal.ai sur {model} : {exc}") from exc
+
+
+async def _rest_submit_and_wait(
+    model: str, payload: dict[str, Any], timeout_s: int = 900
+) -> dict[str, Any]:
+    """Soumission manuelle via l'API REST queue.fal.run (sans fal-client).
+
+    Format impose par la doc fal.ai : le corps POST est l'input du modele
+    tel quel (pas d'enveloppe {"input": ...}), et les URLs de statut /
+    reponse sont celles retournees par la soumission (base proprietaire +
+    app seulement ; le chemin complet du modele retournerait 405).
+    """
+    key = _require_key()
+    headers = {"Authorization": f"Key {key}", "Content-Type": "application/json"}
+    base = f"https://queue.fal.run/{model}"
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.post(base, json=payload, headers=headers)
+        if resp.status_code >= 400:
+            raise FalApiError(
+                f"Soumission fal.ai refusee ({resp.status_code}) : {resp.text[:300]}",
+                status_code=resp.status_code,
+            )
+        submit = resp.json()
+        request_id = submit.get("request_id")
+        if not request_id:
+            raise FalApiError("Reponse fal.ai inattendue : request_id manquant.")
+        app_base = "/".join(model.split("/")[:2])  # proprietaire + app
+        status_url = submit.get("status_url") or (
+            f"https://queue.fal.run/{app_base}/requests/{request_id}/status"
+        )
+        response_url = submit.get("response_url") or (
+            f"https://queue.fal.run/{app_base}/requests/{request_id}"
+        )
+        elapsed = 0
+        while elapsed < timeout_s:
+            status_resp = await client.get(status_url, headers=headers)
+            status_resp.raise_for_status()
+            status = status_resp.json().get("status")
+            if status == "COMPLETED":
+                break
+            if status == "FAILED":
+                raise FalApiError(
+                    f"Le job fal.ai {request_id} a echoue (modele {model})."
+                )
+            await asyncio.sleep(3)
+            elapsed += 3
+        else:
+            raise FalApiError(
+                f"Delai depasse ({timeout_s}s) pour le modele {model}."
+            )
+        out = await client.get(response_url, headers=headers)
+        out.raise_for_status()
+        return out.json()
+
+
+async def _submit_and_wait(
+    model: str, payload: dict[str, Any]
+) -> dict[str, Any]:
+    if _use_rest():
+        return await _rest_submit_and_wait(model, payload)
+    return await _sdk_submit_and_wait(model, payload)
+
+
+# ---------------------------------------------------------------------------
+# API publique (mockable)
+# ---------------------------------------------------------------------------
+async def upload_character_image(path: Path) -> str:
+    """Envoie une image personnage vers le stockage fal.ai, retourne son URL publique."""
+    _require_key()
+    if _use_rest():
+        # L'ancien endpoint rest.alpha.fal.ai/storage est obsolete (le
+        # stockage actuel passe par un jeton rest.fal.ai + v3.fal.media,
+        # gere par le SDK). En transport REST, on passe l'image en data URI :
+        # les modeles fal.ai l'acceptent directement comme image_url.
+        import base64
+        import mimetypes
+
+        mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        encoded = base64.b64encode(path.read_bytes()).decode()
+        return f"data:{mime};base64,{encoded}"
+    sdk = _sdk()
+    if sdk is None:  # pragma: no cover - ne devrait pas arriver ici
+        raise FalApiError("Le package fal-client n'est pas installe.")
+    key = settings.get_fal_key()
+    os.environ.setdefault("FAL_KEY", key)
+    try:
+        return await asyncio.to_thread(sdk.upload_file, str(path))
+    except Exception as exc:
+        raise FalApiError(f"Echec de l'upload vers fal.ai : {exc}") from exc
+
+
+async def generate_character_image(prompt: str) -> str:
+    """Genere l'image du personnage (Flux), retourne l'URL publique de l'image."""
+    _require_key()
+    payload = {
+        "prompt": prompt,
+        "image_size": "square_hd",
+    }
+    result = await _submit_and_wait(settings.tti_model(), payload)
+    try:
+        return result["images"][0]["url"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise FalApiError(
+            "Reponse text-to-image inattendue : URL d'image introuvable."
+        ) from exc
+
+
+async def generate_state_video(
+    image_url: str, state: str, model: str | None = None
+) -> tuple[str, str]:
+    """Genere le clip video d'un etat. Retourne (url_video, modele_utilise)."""
+    _require_key()
+    chosen = model or settings.i2v_model()
+    payload = {
+        "image_url": image_url,
+        "prompt": build_state_prompt(state),
+        "duration": str(settings.VIDEO_DURATION_S),  # Kling : duree discrete "3".."15"
+    }
+    result = await _submit_and_wait(chosen, payload)
+    try:
+        return result["video"]["url"], chosen
+    except (KeyError, TypeError) as exc:
+        raise FalApiError(
+            "Reponse image-to-video inattendue : URL de video introuvable."
+        ) from exc

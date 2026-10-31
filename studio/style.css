@@ -1,0 +1,291 @@
+/* MascotForge V2 : Studio. CSS moderne, aucune dépendance. */
+
+:root {
+  --fond: #0b0b0f;
+  --panneau: #14141c;
+  --panneau-clair: #1e1e28;
+  --bord: #2a2a38;
+  --texte: #eee;
+  --muted: #999;
+  --accent: #c4b5fd;
+  --accent-fond: #2c2440;
+  --vert: #6ee7a0;
+  --rouge: #f38ba8;
+  --ambre: #f5c97b;
+  --rayon: 12px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--fond);
+  color: var(--texte);
+  margin: 0;
+  padding: 24px;
+  line-height: 1.5;
+}
+
+/* ----- En-tête ----- */
+
+.barre-haut {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: 960px;
+  margin-bottom: 20px;
+}
+
+h1 { font-size: 24px; margin: 0 0 4px; }
+
+.badge-v2 {
+  font-size: 12px;
+  vertical-align: middle;
+  background: var(--accent-fond);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 2px 10px;
+  margin-left: 6px;
+}
+
+.sous-titre { color: var(--muted); font-size: 14px; margin: 0; }
+
+.compteur-cout {
+  background: var(--panneau);
+  border: 1px solid var(--bord);
+  border-radius: var(--rayon);
+  padding: 10px 16px;
+  font-size: 14px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.compteur-cout .cout-ligne strong { font-size: 18px; }
+.compteur-cout .cout-sous { display: block; color: var(--muted); font-size: 12px; }
+
+/* ----- Bandeau d'erreur / avertissement ----- */
+
+.bandeau-erreur {
+  max-width: 960px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #2a1218;
+  border: 1px solid var(--rouge);
+  color: #ffd9e2;
+  border-radius: var(--rayon);
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  font-size: 14px;
+}
+
+.bandeau-erreur.avertissement {
+  background: #241c0e;
+  border-color: var(--ambre);
+  color: #ffe6bd;
+}
+
+.bandeau-erreur #bandeau-texte { flex: 1; }
+
+.bandeau-erreur button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+/* ----- Sections / étapes ----- */
+
+main { max-width: 960px; }
+
+section {
+  background: var(--panneau);
+  border: 1px solid var(--bord);
+  border-radius: var(--rayon);
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+section h2 { font-size: 16px; margin: 0 0 12px; }
+section h2 .num { color: var(--accent); margin-right: 8px; }
+
+section.verrouillee { opacity: 0.55; }
+section.verrouillee .verrouille-msg { display: block; }
+section:not(.verrouillee) .verrouille-msg { display: none; }
+
+.muted { color: var(--muted); font-size: 13px; }
+.ligne { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.cache { display: none !important; }
+
+/* ----- Boutons, champs ----- */
+
+button {
+  background: var(--panneau-clair);
+  color: var(--texte);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 9px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.primaire { background: var(--accent-fond); border-color: var(--accent); }
+button.primaire:hover:not(:disabled) { background: #372c52; }
+
+.etiquette { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+
+textarea {
+  width: 100%;
+  background: var(--panneau-clair);
+  color: var(--texte);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 12px;
+}
+
+textarea:focus { outline: none; border-color: var(--accent); }
+
+/* ----- Onglets étape 1 ----- */
+
+.onglets { display: flex; gap: 8px; margin-bottom: 14px; }
+
+.onglet {
+  border-radius: 8px 8px 0 0;
+  border-bottom: none;
+}
+
+.onglet.actif {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--panneau-clair);
+}
+
+.panneau-onglet {
+  border: 1px solid var(--bord);
+  border-radius: 0 8px 8px 8px;
+  padding: 14px;
+  background: #101016;
+}
+
+.zone-fichier {
+  display: block;
+  border: 2px dashed #444;
+  border-radius: 8px;
+  padding: 28px 16px;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: border-color 0.15s;
+}
+
+.zone-fichier:hover { border-color: var(--accent); }
+.zone-texte { color: var(--muted); font-size: 14px; }
+.zone-texte.fichier-choisi { color: var(--texte); }
+
+.apercu-personnage { margin-top: 14px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.apercu-personnage img {
+  width: 160px; height: 160px; object-fit: cover;
+  border-radius: 8px; border: 1px solid var(--bord); background: #101016;
+}
+
+/* ----- Liste des états (étape 2) ----- */
+
+.liste-etats { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 8px; }
+
+.liste-etats li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #101016;
+  border: 1px solid var(--bord);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+.liste-etats .nom-etat { flex: 1; }
+
+.indicateur {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.puce {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #555;
+  flex-shrink: 0;
+}
+
+li[data-statut="running"] .puce {
+  background: var(--accent);
+  animation: pulsation 1s ease-in-out infinite;
+}
+
+li[data-statut="done"] .puce { background: var(--vert); }
+li[data-statut="done"] .indicateur { color: var(--vert); }
+li[data-statut="failed"] .puce { background: var(--rouge); }
+li[data-statut="failed"] .indicateur { color: var(--rouge); }
+
+@keyframes pulsation {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* ----- Grille vidéos (étape 3) ----- */
+
+.grille-videos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.carte-video {
+  margin: 0;
+  background: #101016;
+  border: 1px solid var(--bord);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.carte-video figcaption {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--bord);
+}
+
+.carte-video video { width: 100%; display: block; aspect-ratio: 1; background: #000; }
+.carte-video .muted { padding: 12px; margin: 0; }
+
+/* ----- Export (étape 4) ----- */
+
+.lien-telechargement {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+/* ----- Pied ----- */
+
+.pied { max-width: 960px; margin-top: 8px; }
+
+@media (max-width: 640px) {
+  body { padding: 16px; }
+  .barre-haut { flex-direction: column; }
+  .compteur-cout { text-align: left; }
+}
