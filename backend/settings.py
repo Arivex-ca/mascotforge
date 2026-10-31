@@ -38,6 +38,20 @@ def i2v_model() -> str:
     )
 
 
+def spec_model() -> str:
+    """Image -> personnage 3D : modele OpenRouter qui lit les images, appele via fal.ai.
+
+    Catalogue openrouter.ai/api/v1/models lu le 2026-10-31 : images en entree,
+    2 $ par million de jetons en entree, 10 $ en sortie, contexte 1 M.
+    """
+    return os.environ.get("MASCOTFORGE_SPEC_MODEL", "anthropic/claude-sonnet-5.5")
+
+
+SPEC_ENDPOINT = "openrouter/router/vision"  # endpoint fal.ai ; le cout reel revient dans usage.cost
+SPEC_MAX_ROUNDS = 3  # passes modele + verificateur avant d'abandonner
+SPEC_RESERVE_USD = 0.5  # reserve sous le plafond pendant une creation ; le cout reel est compte a la fin
+
+
 def fallback_model() -> str:
     """Image-to-video de repli.
 

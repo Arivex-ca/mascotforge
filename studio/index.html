@@ -121,7 +121,27 @@
   <section id="code" class="cache" aria-label="Mascotte en code">
     <h2>Personnalisation</h2>
     <form id="formulaire-code" class="formulaire-code">
+      <div id="choix-source-3d" class="choix-source-3d cache">
+        <div class="onglets" role="tablist" aria-label="Source du personnage 3D">
+          <button type="button" id="onglet-3d-galerie" class="onglet actif" role="tab" aria-selected="true" aria-controls="reglages-code">Personnage de la galerie</button>
+          <button type="button" id="onglet-3d-image" class="onglet" role="tab" aria-selected="false" aria-controls="panneau-3d-image">Depuis ton image</button>
+        </div>
+      </div>
       <div id="reglages-code" class="grille-reglages"></div>
+      <div id="panneau-3d-image" class="panneau-onglet panneau-3d-image cache" role="tabpanel" aria-labelledby="onglet-3d-image">
+        <p class="muted explication-3d">Un modèle lit ton image et dessine le personnage en 3D, puis Wobnimo le vérifie, jusqu'à trois passes. Compte environ 0,05 à 0,25 $ et 30 s à 3 min. Le résultat est une interprétation dans le style Wobnimo, pas une copie exacte.</p>
+        <label class="zone-fichier" for="fichier-3d">
+          <input type="file" id="fichier-3d" accept="image/png,image/jpeg,image/webp" hidden>
+          <img id="apercu-fichier-3d" class="apercu-fichier fond-damier cache" alt="">
+          <span class="zone-texte" id="zone-texte-3d">Clique pour choisir une image (PNG, JPEG ou WebP, 10 Mo max)</span>
+        </label>
+        <div class="ligne ligne-creation-3d">
+          <button type="button" class="primaire" id="btn-creer-3d" disabled>Créer le personnage 3D</button>
+          <span class="muted" id="statut-creation-3d" aria-live="polite"></span>
+        </div>
+        <p class="resultat-3d cache" id="info-personnage-3d" aria-live="polite"></p>
+        <p class="avertissement-code cache" id="avertissements-personnage-3d"></p>
+      </div>
     </form>
     <div class="apercu-widget">
       <div class="scene fond-damier" id="scene-code"></div>

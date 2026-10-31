@@ -19,6 +19,8 @@ from backend import settings  # noqa: E402
 
 
 LOOK_MAP = [[0.0, 0.0], [-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]  # carte simulee
+ARIVEX_SPEC_TEXT = (Path(__file__).parent / "fixtures" / "arivex-spec.json").read_text(encoding="utf-8")
+VISION_COST = 0.04  # cout simule d'un appel au modele vision
 
 
 class FakeFal:
@@ -27,9 +29,20 @@ class FakeFal:
     def __init__(self) -> None:
         self.video_calls: list[tuple[str, str]] = []  # (mouvement, modele)
         self.durations: list[int | None] = []  # duree demandee pour chaque clip
+        self.vision_prompts: list[str] = []  # messages envoyes au modele vision
+        self.vision_answers: list[str] = []  # reponses imposees, dans l'ordre (sinon la fiche du robot)
         self.fail_primary_when: str | None = "talking"  # panne du principal si le mouvement contient ce mot
         self.fail_always_when: str | None = None  # panne de tous les modeles
         self.download_failures = 0  # nombre de telechargements a faire echouer
+
+    async def describe_image(
+        self, image_url: str, system_prompt: str, prompt: str, model: str | None = None
+    ) -> tuple[str, float]:
+        assert image_url.startswith("https://fal.media/fake/")
+        assert "Wobnimo" in system_prompt
+        self.vision_prompts.append(prompt)
+        answer = self.vision_answers.pop(0) if self.vision_answers else f"```json\n{ARIVEX_SPEC_TEXT}\n```"
+        return answer, VISION_COST
 
     async def generate_character_image(self, prompt: str) -> str:
         assert prompt.startswith(fal_module.CHARACTER_PROMPT_PREFIX)
@@ -69,6 +82,7 @@ def fal_fake(monkeypatch) -> FakeFal:
     monkeypatch.setattr(fal_module, "generate_character_image", fake.generate_character_image)
     monkeypatch.setattr(fal_module, "upload_character_image", fake.upload_character_image)
     monkeypatch.setattr(fal_module, "generate_state_video", fake.generate_state_video)
+    monkeypatch.setattr(fal_module, "describe_image", fake.describe_image)
     monkeypatch.setattr(pipeline_module, "_download_video", fake.download_video)
     # ffmpeg simule : les vrais filtres sont couverts par tests/test_alpha.py
     monkeypatch.setattr(alpha_module, "available", lambda: True)

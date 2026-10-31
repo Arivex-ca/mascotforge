@@ -146,6 +146,35 @@ curseur d'elles-mêmes, et aucune n'appelle de serveur tiers : MascotForge ne
 propose pas les animaux 3D de Blob Atelier, qui chargent three.js depuis un CDN.
 Provenance, versions et empreintes des moteurs : `engines/README.md`.
 
+### Personnage 3D depuis une image
+
+Dans le style 3D, l'onglet « Depuis ton image » crée un personnage Wobnimo sur
+mesure :
+
+1. L'image part sur le stockage fal.ai.
+2. Un modèle qui lit les images (`MASCOTFORGE_SPEC_MODEL`, défaut
+   `anthropic/claude-sonnet-5.5`, appelé via l'endpoint fal.ai
+   `openrouter/router/vision`) écrit la fiche du personnage en JSON, en suivant
+   le guide de Wobnimo embarqué dans `engines/wobnimo/skill/`.
+3. Le vérificateur de Wobnimo (`engines/wobnimo/cli.mjs`, lancé avec Node 18 ou
+   plus) mesure la vraie forme 3D. Ses erreurs et leurs corrections exactes
+   repartent au modèle, en 3 passes au plus.
+4. La fiche validée s'affiche dans le widget (`"engine_spec"` du manifest) et
+   part dans l'export.
+
+Coût : le coût réel renvoyé par fal.ai à chaque appel, environ 0,05 à 0,25 $ par
+personnage ; 0,50 $ sont réservés sous le plafond pendant la création. Le
+résultat est une interprétation dans le style Wobnimo : au repos, les yeux de
+l'écran LED restent ceux du moteur.
+
+| Méthode | Route | Description |
+|---|---|---|
+| POST | `/api/engines/3d/from-image` | multipart `file` -> `{"spec_id"}` (503 sans clé fal.ai ou sans Node) |
+| GET | `/api/engines/3d/specs/{spec_id}` | statut, nom, passes, avertissements, coût |
+
+La fiche s'utilise ensuite avec `{"spec": spec_id}` à la place de
+`{"character": ...}`, pour l'aperçu comme pour l'export.
+
 ### Suivi du curseur
 
 Option du studio (étape 3) : Kling génère un clip de 8 s où seule la tête
@@ -182,6 +211,7 @@ navigateur.
 - `backend/cost.py` : compteur mensuel, réservations, plafond
 - `backend/exporter.py` : manifest v2, dossier importable, zip
 - `backend/engines.py` : mascottes en code (moteurs, réglages, manifest)
+- `backend/image3d.py` : image -> personnage 3D Wobnimo (modèle vision, vérificateur, corrections)
 - `engines/` : Blob Atelier et Wobnimo, non modifiés, avec leurs licences MIT
 - `widget/mascot-avatar.js` : le composant web
 - `studio/` : l'interface de création

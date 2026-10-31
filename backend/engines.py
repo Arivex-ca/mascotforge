@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 
-from backend import settings
+from backend import image3d, settings
 
 HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
@@ -67,7 +67,18 @@ def get_engine(engine: str) -> dict:
 
 
 def validate_config(engine: str, config: dict) -> dict:
-    """Garde les reglages connus, valeurs par defaut = premiere option."""
+    """Garde les reglages connus, valeurs par defaut = premiere option.
+
+    En 3D, {"spec": id} remplace le personnage par une fiche creee depuis une image.
+    """
+    if engine == "3d" and "spec" in config:
+        if set(config) != {"spec"}:
+            raise InvalidEngineError("Un personnage cree depuis une image ne prend pas d'autre reglage.")
+        try:
+            image3d.done_spec(str(config["spec"]))
+        except image3d.SpecNotFoundError as exc:
+            raise InvalidEngineError(str(exc)) from exc
+        return {"spec": str(config["spec"])}
     spec = get_engine(engine)
     clean: dict[str, str] = {}
     for key, allowed in spec["options"].items():
@@ -89,17 +100,23 @@ def validate_config(engine: str, config: dict) -> dict:
 def build_manifest(engine: str, config: dict, script_src: str, name: str) -> dict:
     """Manifest v2 d'une mascotte en code. script_src : chemin du moteur."""
     spec = get_engine(engine)
-    return {
+    clean = validate_config(engine, config)
+    manifest = {
         "version": 2,
         "name": name,
         "engine": engine,
         "engine_src": script_src,
-        "engine_config": validate_config(engine, config),
+        "engine_config": clean,
         "default_state": "idle",
         "alpha": "none",
         "states": {state: {"loop": True} for state in spec["states"]},
         "credit": spec["credit"],
     }
+    if "spec" in clean:
+        # Fiche sur mesure : le widget la passe a <wobnimo-mascot> (el.spec).
+        manifest["engine_config"] = {}
+        manifest["engine_spec"] = image3d.done_spec(clean["spec"])
+    return manifest
 
 
 def public_catalog() -> dict:

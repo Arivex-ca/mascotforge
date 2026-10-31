@@ -266,6 +266,18 @@ textarea:focus { outline: none; border-color: var(--accent); }
 /* ----- Mascottes en code ----- */
 
 .formulaire-code { margin-bottom: 18px; }
+.choix-source-3d .onglets { margin-bottom: 0; }
+#reglages-code[role="tabpanel"] {
+  border: 1px solid var(--bord);
+  border-radius: 0 8px 8px 8px;
+  padding: 14px;
+  background: #101016;
+}
+.panneau-3d-image .explication-3d { margin-top: 0; }
+.panneau-3d-image .zone-fichier { margin-top: 12px; }
+.ligne-creation-3d { margin-bottom: 0; }
+.resultat-3d { color: var(--vert); font-size: 13px; margin: 12px 0 0; }
+.avertissement-code { color: var(--ambre); font-size: 13px; margin: 8px 0 0; }
 .grille-reglages {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

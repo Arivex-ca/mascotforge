@@ -23,6 +23,13 @@ var moteurActuel = null;
 var configurationsCode = {};
 var avatarCodeActuel = null;
 var delaiApercuCode = null;
+var sourcePersonnage3d = "galerie";
+var personnageGalerie3d = null;
+var apercuFichier3dUrl = null;
+var spec3dTerminee = null;
+var spec3dSuivieId = null;
+var intervallePoll3d = null;
+var poll3dEnCours = false;
 
 var LIBELLES_REGLAGES = {
   shape: "Forme",
@@ -115,15 +122,26 @@ function basculerStyle(style) {
     $("style-" + nom).setAttribute("aria-selected", String(selectionne));
   });
 
-  $("description-style").textContent = estCode
-    ? "Gratuit et instantané : la mascotte suit le curseur et utilise les états fixes du moteur."
-    : "Ton image est animée par IA, pour environ 0,25 $ par état.";
+  actualiserDescriptionStyle();
 
   if (!estCode) {
     clearTimeout(delaiApercuCode);
     return;
   }
   if (moteurs) { construireFormulaireCode(style); }
+}
+
+function actualiserDescriptionStyle() {
+  if (styleActuel === "video") {
+    $("description-style").textContent =
+      "Ton image est animée par IA, pour environ 0,25 $ par état.";
+  } else if (styleActuel === "3d" && sourcePersonnage3d === "image") {
+    $("description-style").textContent =
+      "Ton image sert de référence pour créer un personnage 3D dans le style Wobnimo.";
+  } else {
+    $("description-style").textContent =
+      "Gratuit et instantané : la mascotte suit le curseur et utilise les états fixes du moteur.";
+  }
 }
 
 async function chargerMoteurs() {
@@ -158,6 +176,13 @@ function reinitialiserExportCode() {
   var lien = $("lien-telechargement-code");
   lien.classList.add("cache");
   lien.removeAttribute("href");
+}
+
+function actualiserDisponibiliteExportCode() {
+  var bouton = $("btn-export-code");
+  if (bouton.classList.contains("occupe")) { return; }
+  bouton.disabled = moteurActuel === "3d" &&
+    sourcePersonnage3d === "image" && !spec3dTerminee;
 }
 
 function construireFormulaireCode(cle) {
@@ -196,9 +221,20 @@ function construireFormulaireCode(cle) {
       optionInitiale.dataset.couleurPerso = "true";
       select.appendChild(optionInitiale);
     }
-    select.value = config[nom];
-    if (select.value !== config[nom]) { select.selectedIndex = -1; }
+    var valeurSelectionnee = config[nom];
+    if (cle === "3d" && nom === "character") {
+      if (!personnageGalerie3d) {
+        personnageGalerie3d = valeurSelectionnee || String(spec.options[nom][0]);
+      }
+      valeurSelectionnee = personnageGalerie3d;
+    }
+    select.value = valeurSelectionnee;
+    if (select.value !== valeurSelectionnee) { select.selectedIndex = -1; }
     select.addEventListener("change", function () {
+      if (cle === "3d" && nom === "character") {
+        personnageGalerie3d = select.value;
+        if (sourcePersonnage3d !== "galerie") { return; }
+      }
       config[nom] = select.value;
       if (couleurPerso && /^#[0-9a-f]{6}$/i.test(select.value)) {
         couleurPerso.value = select.value;
@@ -243,13 +279,251 @@ function construireFormulaireCode(cle) {
     }
   });
 
+  actualiserInterfaceSource3d(cle);
   construireControlesEtatsCode(spec.states);
   construireCreditCode(spec);
   reinitialiserExportCode();
-  if (!$("btn-export-code").classList.contains("occupe")) {
-    $("btn-export-code").disabled = false;
-  }
+  actualiserDisponibiliteExportCode();
   programmerApercuCode();
+}
+
+function remplacerConfiguration3d(nom, valeur) {
+  var config = obtenirConfigurationCode("3d");
+  Object.keys(config).forEach(function (cle) { delete config[cle]; });
+  config[nom] = valeur;
+}
+
+function obtenirPersonnageGalerie3d() {
+  var select = $("code-3d-character");
+  if (select && select.value) { personnageGalerie3d = select.value; }
+  if (!personnageGalerie3d && moteurs && moteurs["3d"] && moteurs["3d"].options.character) {
+    personnageGalerie3d = String(moteurs["3d"].options.character[0]);
+  }
+  return personnageGalerie3d;
+}
+
+function actualiserInterfaceSource3d(cle) {
+  var est3d = cle === "3d";
+  var depuisImage = est3d && sourcePersonnage3d === "image";
+  var reglages = $("reglages-code");
+  $("choix-source-3d").classList.toggle("cache", !est3d);
+  reglages.classList.toggle("cache", depuisImage);
+  $("panneau-3d-image").classList.toggle("cache", !depuisImage);
+
+  $("onglet-3d-galerie").classList.toggle("actif", !depuisImage);
+  $("onglet-3d-image").classList.toggle("actif", depuisImage);
+  $("onglet-3d-galerie").setAttribute("aria-selected", String(!depuisImage));
+  $("onglet-3d-image").setAttribute("aria-selected", String(depuisImage));
+
+  if (est3d) {
+    reglages.setAttribute("role", "tabpanel");
+    reglages.setAttribute("aria-labelledby", "onglet-3d-galerie");
+  } else {
+    reglages.removeAttribute("role");
+    reglages.removeAttribute("aria-labelledby");
+  }
+}
+
+function basculerSourcePersonnage3d(source) {
+  if (source !== "galerie" && source !== "image") { return; }
+  sourcePersonnage3d = source;
+  if (source === "galerie") {
+    var personnage = obtenirPersonnageGalerie3d();
+    if (personnage) { remplacerConfiguration3d("character", personnage); }
+  } else if (spec3dTerminee) {
+    remplacerConfiguration3d("spec", spec3dTerminee.spec_id);
+  }
+  actualiserInterfaceSource3d("3d");
+  actualiserDescriptionStyle();
+  reinitialiserExportCode();
+  actualiserDisponibiliteExportCode();
+  programmerApercuCode();
+}
+
+function majApercuFichier3d(fichier) {
+  var img = $("apercu-fichier-3d");
+  if (apercuFichier3dUrl) {
+    URL.revokeObjectURL(apercuFichier3dUrl);
+    apercuFichier3dUrl = null;
+  }
+  if (!fichier) {
+    img.removeAttribute("src");
+    img.classList.add("cache");
+    return;
+  }
+  apercuFichier3dUrl = URL.createObjectURL(fichier);
+  img.src = apercuFichier3dUrl;
+  img.alt = "Aperçu de " + fichier.name;
+  img.classList.remove("cache");
+}
+
+function majFichierPersonnage3d() {
+  var input = $("fichier-3d");
+  var zone = $("zone-texte-3d");
+  var bouton = $("btn-creer-3d");
+  var fichier = input.files && input.files.length > 0 ? input.files[0] : null;
+  if (fichier && fichier.size > 10 * 1024 * 1024) {
+    input.value = "";
+    zone.textContent = "Clique pour choisir une image (PNG, JPEG ou WebP, 10 Mo max)";
+    zone.classList.remove("fichier-choisi");
+    bouton.disabled = true;
+    majApercuFichier3d(null);
+    afficherBandeau("Image trop lourde : 10 Mo maximum.", "erreur");
+    return;
+  }
+  if (fichier) {
+    zone.textContent = "Fichier choisi : " + fichier.name + " (clique pour en changer)";
+    zone.classList.add("fichier-choisi");
+    if (!bouton.classList.contains("occupe")) { bouton.disabled = false; }
+    majApercuFichier3d(fichier);
+  } else {
+    zone.textContent = "Clique pour choisir une image (PNG, JPEG ou WebP, 10 Mo max)";
+    zone.classList.remove("fichier-choisi");
+    bouton.disabled = true;
+    majApercuFichier3d(null);
+  }
+}
+
+function effacerResultatPersonnage3d() {
+  $("info-personnage-3d").textContent = "";
+  $("info-personnage-3d").classList.add("cache");
+  $("avertissements-personnage-3d").textContent = "";
+  $("avertissements-personnage-3d").classList.add("cache");
+}
+
+function afficherResultatPersonnage3d(job) {
+  var passes = typeof job.rounds === "number" ? job.rounds : 0;
+  var info = $("info-personnage-3d");
+  info.textContent = (job.name || "Personnage 3D") + " est prêt. " + passes +
+    " passe" + (passes > 1 ? "s" : "") + ", coût : " + formaterMontant(job.cost_usd) + ".";
+  info.classList.remove("cache");
+
+  var nombreAvertissements = typeof job.warnings === "number" ? job.warnings : 0;
+  var avertissements = $("avertissements-personnage-3d");
+  if (nombreAvertissements > 0) {
+    avertissements.textContent = "Wobnimo signale encore " + nombreAvertissements +
+      " avertissement" + (nombreAvertissements > 1 ? "s" : "") + ".";
+    avertissements.classList.remove("cache");
+  } else {
+    avertissements.textContent = "";
+    avertissements.classList.add("cache");
+  }
+}
+
+function arreterSuiviPersonnage3d() {
+  if (intervallePoll3d) {
+    clearInterval(intervallePoll3d);
+    intervallePoll3d = null;
+  }
+}
+
+function libererBoutonPersonnage3d() {
+  var bouton = $("btn-creer-3d");
+  if (bouton.classList.contains("occupe")) { liberer(bouton); }
+  var input = $("fichier-3d");
+  bouton.disabled = !(input.files && input.files.length > 0);
+}
+
+function suivrePersonnage3d(id) {
+  arreterSuiviPersonnage3d();
+  spec3dSuivieId = id;
+  intervallePoll3d = setInterval(actualiserPersonnage3d, 3000);
+  actualiserPersonnage3d();
+}
+
+async function creerPersonnage3d() {
+  var input = $("fichier-3d");
+  if (!input.files || input.files.length === 0) { return; }
+  if (input.files[0].size > 10 * 1024 * 1024) {
+    afficherBandeau("Image trop lourde : 10 Mo maximum.", "erreur");
+    return;
+  }
+
+  arreterSuiviPersonnage3d();
+  spec3dSuivieId = null;
+  spec3dTerminee = null;
+  effacerResultatPersonnage3d();
+  reinitialiserExportCode();
+  actualiserDisponibiliteExportCode();
+  var bouton = $("btn-creer-3d");
+  occuper(bouton, "Envoi de l'image…");
+  $("statut-creation-3d").textContent = "Envoi de l'image…";
+  var donnees = new FormData();
+  donnees.append("file", input.files[0]);
+  var r = await api("/api/engines/3d/from-image", { method: "POST", body: donnees });
+  if (gererErreurReseau(r, "création du personnage 3D")) {
+    libererBoutonPersonnage3d();
+    $("statut-creation-3d").textContent = "Création interrompue.";
+    return;
+  }
+  if (r.statut !== 200 || !r.corps || !r.corps.spec_id) {
+    libererBoutonPersonnage3d();
+    $("statut-creation-3d").textContent = "Création interrompue.";
+    if (r.statut === 429) { rafraichirCout(); }
+    afficherBandeau(messageErreur(r, "La création du personnage 3D a échoué"), "erreur");
+    return;
+  }
+  cacherBandeau();
+  $("statut-creation-3d").textContent = "Image reçue. Préparation du personnage…";
+  suivrePersonnage3d(r.corps.spec_id);
+}
+
+async function actualiserPersonnage3d() {
+  if (!spec3dSuivieId || poll3dEnCours) { return; }
+  var id = spec3dSuivieId;
+  poll3dEnCours = true;
+  var r = await api("/api/engines/3d/specs/" + encodeURIComponent(id));
+  poll3dEnCours = false;
+  if (id !== spec3dSuivieId) { return; }
+
+  if (gererErreurReseau(r, "suivi du personnage 3D")) {
+    arreterSuiviPersonnage3d();
+    spec3dSuivieId = null;
+    libererBoutonPersonnage3d();
+    $("statut-creation-3d").textContent = "Suivi interrompu.";
+    return;
+  }
+  if (r.statut !== 200 || !r.corps) {
+    arreterSuiviPersonnage3d();
+    spec3dSuivieId = null;
+    libererBoutonPersonnage3d();
+    $("statut-creation-3d").textContent = "Suivi interrompu.";
+    if (r.statut === 429) { rafraichirCout(); }
+    afficherBandeau(messageErreur(r, "Le suivi du personnage 3D a été interrompu"), "erreur");
+    return;
+  }
+
+  var job = r.corps;
+  if (job.status === "done") {
+    arreterSuiviPersonnage3d();
+    spec3dSuivieId = null;
+    spec3dTerminee = job;
+    libererBoutonPersonnage3d();
+    actualiserDisponibiliteExportCode();
+    $("statut-creation-3d").textContent = "Personnage 3D terminé.";
+    afficherResultatPersonnage3d(job);
+    if (sourcePersonnage3d === "image") {
+      remplacerConfiguration3d("spec", job.spec_id);
+      if (styleActuel === "3d" && moteurActuel === "3d") {
+        reinitialiserExportCode();
+        programmerApercuCode();
+      }
+    }
+    cacherBandeau();
+    rafraichirCout();
+  } else if (job.status === "failed") {
+    arreterSuiviPersonnage3d();
+    spec3dSuivieId = null;
+    libererBoutonPersonnage3d();
+    $("statut-creation-3d").textContent = "La création a échoué.";
+    afficherBandeau(job.error || "La création du personnage 3D a échoué.", "erreur");
+    rafraichirCout();
+  } else if (job.status === "queued") {
+    $("statut-creation-3d").textContent = "Personnage en file d'attente…";
+  } else {
+    $("statut-creation-3d").textContent =
+      "Le modèle dessine le personnage et Wobnimo le vérifie…";
+  }
 }
 
 function construireControlesEtatsCode(etats) {
@@ -315,7 +589,7 @@ function afficherApercuCode() {
 async function exporterDossierCode() {
   if (!moteurActuel || !moteurs) { return; }
   var moteurExporte = moteurActuel;
-  var configExportee = obtenirConfigurationCode(moteurExporte);
+  var configExportee = Object.assign({}, obtenirConfigurationCode(moteurExporte));
   var bouton = $("btn-export-code");
   occuper(bouton, "Préparation du zip…");
   var r = await api("/api/engines/" + encodeURIComponent(moteurExporte) + "/export", {
@@ -324,12 +598,16 @@ async function exporterDossierCode() {
     body: JSON.stringify({ config: configExportee })
   });
   liberer(bouton);
+  actualiserDisponibiliteExportCode();
   if (gererErreurReseau(r, "export de la mascotte en code")) { return; }
   if (r.statut !== 200 || !r.corps || !r.corps.download_url) {
     afficherBandeau(messageErreur(r, "L'export a échoué"), "erreur");
     return;
   }
-  if (moteurActuel !== moteurExporte) { return; }
+  if (moteurActuel !== moteurExporte ||
+      JSON.stringify(obtenirConfigurationCode(moteurExporte)) !== JSON.stringify(configExportee)) {
+    return;
+  }
   cacherBandeau();
   var lien = $("lien-telechargement-code");
   lien.href = r.corps.download_url;
@@ -924,8 +1202,25 @@ function init() {
   $("style-video").addEventListener("click", function () { basculerStyle("video"); });
   $("style-blob").addEventListener("click", function () { basculerStyle("blob"); });
   $("style-3d").addEventListener("click", function () { basculerStyle("3d"); });
+  $("onglet-3d-galerie").addEventListener("click", function () {
+    basculerSourcePersonnage3d("galerie");
+  });
+  $("onglet-3d-image").addEventListener("click", function () {
+    basculerSourcePersonnage3d("image");
+  });
   $("onglet-upload").addEventListener("click", function () { basculerOnglet(false); });
   $("onglet-prompt").addEventListener("click", function () { basculerOnglet(true); });
+
+  $("fichier-3d").addEventListener("change", majFichierPersonnage3d);
+  $("apercu-fichier-3d").addEventListener("error", function () {
+    $("fichier-3d").value = "";
+    majFichierPersonnage3d();
+    afficherBandeau(
+      "Ce fichier ne se lit pas comme une image. Choisis un PNG, un JPEG ou un WebP.",
+      "erreur"
+    );
+  });
+  $("btn-creer-3d").addEventListener("click", creerPersonnage3d);
 
   $("fichier").addEventListener("change", function () {
     var input = $("fichier");

@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from backend import alpha
 from backend import cost as cost_module
 from backend import engines as engines_module
+from backend import image3d
 from backend import exporter, fal as fal_module
 from backend import pipeline, settings
 from backend import states as states_module
@@ -54,7 +55,7 @@ async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
         settings.exports_dir(),
     ):
         directory.mkdir(parents=True, exist_ok=True)
-    interrupted = pipeline.recover_interrupted_jobs()
+    interrupted = pipeline.recover_interrupted_jobs() + image3d.recover_interrupted()
     if interrupted:
         log.warning("%s job(s) interrompu(s) par le redemarrage, passes en echec", interrupted)
     if not alpha.available():
@@ -342,6 +343,51 @@ def api_export(job_id: str) -> ExportResponse:
 @app.get("/api/engines")
 def api_engines() -> dict:
     return engines_module.public_catalog()
+
+
+@app.post("/api/engines/3d/from-image")
+async def api_spec_from_image(file: UploadFile = File(...)) -> dict:
+    """Cree un personnage 3D Wobnimo d'apres une image. Suivi : GET /api/engines/3d/specs/{id}."""
+    if not settings.fal_key_configured():
+        raise _no_fal_key_error()
+    if not image3d.available():
+        raise HTTPException(
+            status_code=503,
+            detail="Node est introuvable : installe Node 18 ou plus pour creer un personnage 3D.",
+        )
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in ALLOWED_UPLOAD_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Format de fichier refuse : envoyez un PNG, JPG ou WEBP.")
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    if not content:
+        raise HTTPException(status_code=400, detail="Le fichier envoye est vide.")
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Image trop lourde : 10 Mo maximum.")
+    reserve = settings.SPEC_RESERVE_USD
+    if not cost_module.reserve(reserve):
+        raise HTTPException(status_code=429, detail=pipeline.cap_message(reserve))
+    source = image3d.image_path_for(ext)
+    source.write_bytes(content)
+    spec_id = image3d.create_job(source)
+    if settings.sync_jobs():
+        await image3d.run_job(spec_id, reserve)
+    else:
+        _start(image3d.run_job(spec_id, reserve))
+    return {"spec_id": spec_id}
+
+
+@app.get("/api/engines/3d/specs/{spec_id}")
+def api_spec_status(spec_id: str) -> dict:
+    try:
+        job = image3d.get_job(spec_id)
+    except image3d.SpecNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    warnings = [i for i in job.get("issues", []) if i.get("level") == "warning"]
+    return {
+        "spec_id": job["id"], "status": job["status"], "error": job.get("error"),
+        "name": job.get("name"), "rounds": job.get("rounds", 0),
+        "warnings": len(warnings), "cost_usd": job.get("cost_usd", 0.0), "model": job.get("model"),
+    }
 
 
 @app.get("/api/engines/{engine}/manifest.json")

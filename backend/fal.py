@@ -180,6 +180,29 @@ async def _submit_and_wait(
 # ---------------------------------------------------------------------------
 # API publique (mockable)
 # ---------------------------------------------------------------------------
+async def describe_image(
+    image_url: str, system_prompt: str, prompt: str, model: str | None = None
+) -> tuple[str, float]:
+    """Fait lire une image a un modele de langage. Retourne (texte, cout reel en USD)."""
+    _require_key()
+    payload = {
+        "model": model or settings.spec_model(),
+        "prompt": prompt,
+        "system_prompt": system_prompt,
+        "image_urls": [image_url],
+        "temperature": 0.3,
+        "max_tokens": 16000,
+        # Les modeles qui raisonnent (claude-sonnet-5.5) refusent l'appel si le
+        # raisonnement est coupe ("Reasoning is mandatory", constate le 2026-10-31).
+        "reasoning": True,
+    }
+    result = await _submit_and_wait(settings.SPEC_ENDPOINT, payload)
+    try:
+        return str(result["output"]), float((result.get("usage") or {}).get("cost") or 0.0)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise FalApiError("Reponse du modele vision inattendue : texte introuvable.") from exc
+
+
 async def upload_character_image(path: Path) -> str:
     """Envoie une image personnage vers le stockage fal.ai, retourne son URL publique."""
     _require_key()
