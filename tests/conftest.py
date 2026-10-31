@@ -18,11 +18,15 @@ from backend import pipeline as pipeline_module  # noqa: E402
 from backend import settings  # noqa: E402
 
 
+LOOK_MAP = [[0.0, 0.0], [-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]  # carte simulee
+
+
 class FakeFal:
     """fal.ai simule. Les tests reglent les pannes et lisent les appels."""
 
     def __init__(self) -> None:
         self.video_calls: list[tuple[str, str]] = []  # (mouvement, modele)
+        self.durations: list[int | None] = []  # duree demandee pour chaque clip
         self.fail_primary_when: str | None = "talking"  # panne du principal si le mouvement contient ce mot
         self.fail_always_when: str | None = None  # panne de tous les modeles
         self.download_failures = 0  # nombre de telechargements a faire echouer
@@ -36,10 +40,11 @@ class FakeFal:
         return "https://fal.media/fake/uploaded.png"
 
     async def generate_state_video(
-        self, image_url: str, motion: str, model: str | None = None
+        self, image_url: str, motion: str, model: str | None = None, duration_s: int | None = None
     ) -> tuple[str, str]:
         chosen = model or settings.i2v_model()
         self.video_calls.append((motion, chosen))
+        self.durations.append(duration_s)
         if self.fail_always_when and self.fail_always_when in motion:
             raise fal_module.FalApiError("panne simulee secrete", status_code=422)
         if self.fail_primary_when and self.fail_primary_when in motion and chosen == settings.i2v_model():
@@ -67,7 +72,8 @@ def fal_fake(monkeypatch) -> FakeFal:
     monkeypatch.setattr(pipeline_module, "_download_video", fake.download_video)
     # ffmpeg simule : les vrais filtres sont couverts par tests/test_alpha.py
     monkeypatch.setattr(alpha_module, "available", lambda: True)
-    monkeypatch.setattr(alpha_module, "to_stacked_alpha", lambda src, dest, size=480: shutil.copyfile(src, dest))
+    monkeypatch.setattr(alpha_module, "to_stacked_alpha", lambda src, dest, **_opts: shutil.copyfile(src, dest))
+    monkeypatch.setattr(alpha_module, "head_offsets", lambda path: LOOK_MAP)
     monkeypatch.setattr(alpha_module, "put_on_green", lambda src, dest: shutil.copyfile(src, dest))
     return fake
 

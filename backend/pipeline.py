@@ -113,8 +113,8 @@ def get_character(character_id: str) -> dict:
 # ---------------------------------------------------------------------------
 # Jobs
 # ---------------------------------------------------------------------------
-def clip_cost_usd(model: str) -> float:
-    return round(settings.VIDEO_DURATION_S * settings.i2v_rate_usd(model), 4)
+def clip_cost_usd(model: str, duration_s: int | None = None) -> float:
+    return round((duration_s or settings.VIDEO_DURATION_S) * settings.i2v_rate_usd(model), 4)
 
 
 def estimate_job_cost_usd(n_states: int) -> float:
@@ -239,7 +239,7 @@ def prepare_regenerate(job_id: str, state: str, prompt: str | None = None) -> fl
     fields: dict = {"status": "queued", "error": None, "source_url": None}
     if prompt is not None:
         fields["prompt"] = states_module.clean_prompt(state, prompt)
-    estimate = estimate_job_cost_usd(1)
+    estimate = clip_cost_usd(settings.i2v_model(), job["states"][state].get("duration_s"))
     if not cost_module.reserve(estimate):
         raise CapExceededError(cap_message(estimate))
     _raw_path(job_id, state).unlink(missing_ok=True)  # sinon on reprendrait l'ancien clip
@@ -248,6 +248,38 @@ def prepare_regenerate(job_id: str, state: str, prompt: str | None = None) -> fl
         job_id, status="queued",
         completed_once=job.get("completed_once", False) or job["status"] == "done",
     )
+    return estimate
+
+
+def prepare_look(job_id: str, prompt: str | None = None) -> float:
+    """Ajoute (ou refait) le clip du suivi du curseur. Retourne la reserve.
+
+    Le clip dure LOOK_DURATION_S et n'est pas un etat jouable : le widget en
+    affiche l'image qui regarde vers le curseur.
+    """
+    job = get_job(job_id)
+    name = states_module.LOOK_STATE
+    if name in job["states"]:
+        return prepare_regenerate(job_id, name, prompt)
+    if job["status"] in ("queued", "running"):
+        raise NothingToRetryError("Le job tourne encore : attends la fin avant d'ajouter le suivi.")
+    clean = states_module.clean_prompt(name, prompt if prompt is not None else states_module.LOOK_PROMPT)
+    estimate = clip_cost_usd(settings.i2v_model(), settings.LOOK_DURATION_S)
+    if not cost_module.reserve(estimate):
+        raise CapExceededError(cap_message(estimate))
+    with _lock:
+        jobs = _read_json(_jobs_path(), {})
+        current = jobs[job_id]
+        current["states"][name] = {
+            "status": "queued", "prompt": clean, "loop": False,
+            "kind": "look", "duration_s": settings.LOOK_DURATION_S, "look_map": None,
+            "video_url": None, "source_url": None, "model": None, "error": None,
+            "alpha": False, "cost_usd": 0.0,
+        }
+        current["completed_once"] = current.get("completed_once", False) or current["status"] == "done"
+        current["status"] = "queued"
+        current["updated_at"] = _utcnow()
+        _write_json(_jobs_path(), jobs)
     return estimate
 
 
@@ -319,7 +351,9 @@ async def _download_with_retries(url: str, dest: Path) -> None:
             await asyncio.sleep(attempt)
 
 
-async def _generate_with_fallback(job_id: str, state: str, image_url: str, motion: str) -> str:
+async def _generate_with_fallback(
+    job_id: str, state: str, image_url: str, motion: str, duration_s: int | None = None
+) -> str:
     """Genere le clip (principal puis fallback). Retourne l'URL fal du clip."""
     primary = settings.i2v_model()
     fallback = settings.fallback_model()
@@ -328,14 +362,14 @@ async def _generate_with_fallback(job_id: str, state: str, image_url: str, motio
     for model in models:
         try:
             video_url, used_model = await fal_module.generate_state_video(
-                image_url, motion, model=model
+                image_url, motion, model=model, duration_s=duration_s
             )
         except Exception as exc:  # on journalise, puis on tente le fallback
             last_exc = exc
             log.warning("job %s etat %s : echec sur %s : %r", job_id, state, model, exc)
             continue
         # Le clip est facture des qu'il existe, meme si la suite echoue.
-        spent = get_job(job_id)["states"][state]["cost_usd"] + clip_cost_usd(used_model)
+        spent = get_job(job_id)["states"][state]["cost_usd"] + clip_cost_usd(used_model, duration_s)
         _update_state(
             job_id, state, model=used_model, source_url=video_url, cost_usd=round(spent, 4)
         )
@@ -362,9 +396,21 @@ async def _generate_one_state(
                     except httpx.HTTPError:
                         log.warning("job %s etat %s : URL fal expiree, on regenere", job_id, state)
                 if not downloaded:
-                    url = await _generate_with_fallback(job_id, state, image_url, info["prompt"])
+                    url = await _generate_with_fallback(
+                        job_id, state, image_url, info["prompt"], info.get("duration_s")
+                    )
                     await _download_with_retries(url, raw)
-            if alpha.available():
+            extra: dict = {}
+            if info.get("kind") == "look":
+                if not alpha.available():
+                    raise alpha.AlphaError("Le suivi du curseur demande ffmpeg pour analyser le clip.")
+                # Une image cle par image : le widget saute a n'importe laquelle.
+                await asyncio.to_thread(
+                    alpha.to_stacked_alpha, raw, final, fps=settings.LOOK_FPS, all_intra=True
+                )
+                extra["look_map"] = await asyncio.to_thread(alpha.head_offsets, final)
+                stacked = True
+            elif alpha.available():
                 await asyncio.to_thread(alpha.to_stacked_alpha, raw, final)
                 stacked = True
             else:
@@ -372,7 +418,7 @@ async def _generate_one_state(
                 stacked = False
             _update_state(
                 job_id, state, status="done", error=None, alpha=stacked,
-                video_url=f"/videos/{job_id}/{state}.mp4",
+                video_url=f"/videos/{job_id}/{state}.mp4", **extra,
             )
         except Exception as exc:
             log.exception("job %s etat %s : echec", job_id, state)

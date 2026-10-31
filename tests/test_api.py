@@ -11,6 +11,7 @@ from backend import fal as fal_module
 from backend import pipeline as pipeline_module
 from backend import settings
 from backend import states as states_module
+from conftest import LOOK_MAP
 
 # Capturee a l'import, avant que la fixture fal_fake ne la remplace.
 REAL_GENERATE_STATE_VIDEO = fal_module.generate_state_video
@@ -52,6 +53,7 @@ def test_presets(client):
     assert body["default"] == "agent"
     assert [s["name"] for s in body["presets"]["agent"]["states"]] == AGENT_STATES
     assert body["cost_per_state_usd"] == CLIP
+    assert body["look_cost_usd"] == round(settings.LOOK_DURATION_S * 0.084, 4)
     assert body["max_states"] == states_module.MAX_STATES
 
 
@@ -326,6 +328,52 @@ def test_regenerate_state_errors(client):
     queued_id, _ = pipeline_module.create_job(character_id, states_module.preset_states("site"))
     resp = client.post(f"/api/jobs/{queued_id}/states/idle/regenerate", json={})
     assert resp.status_code == 409
+    _no_em_dash(resp.json()["detail"])
+
+
+def test_look_adds_cursor_tracking_to_a_done_job(client, fal_fake):
+    character_id = _character(client)
+    states = [{"name": "idle", "prompt": "breathing", "loop": True}]
+    job_id = _generate(client, character_id, states=states).json()["job_id"]
+    look_cost = round(settings.LOOK_DURATION_S * 0.084, 4)
+    assert client.get("/api/presets").json()["look_cost_usd"] == look_cost
+
+    resp = client.post(f"/api/jobs/{job_id}/look", json={})
+    assert resp.status_code == 200, resp.text
+    job = client.get(f"/api/jobs/{job_id}").json()
+    assert job["status"] == "done"
+    assert job["states"]["look"]["kind"] == "look"
+    assert fal_fake.durations[-1] == settings.LOOK_DURATION_S
+    assert states_module.LOOK_PROMPT in fal_fake.video_calls[-1][0]
+    assert job["actual_cost_usd"] == round(CLIP + look_cost, 4)
+    assert client.get("/api/cost").json()["mascots_completed"] == 1
+
+    manifest = client.get(f"/api/jobs/{job_id}/manifest.json").json()
+    assert list(manifest["states"]) == ["idle"], "look n'est pas un etat jouable"
+    assert manifest["look"] == {
+        "src": f"/videos/{job_id}/look.mp4", "fps": settings.LOOK_FPS, "map": LOOK_MAP,
+    }
+
+    resp = client.get(client.post(f"/api/export/{job_id}").json()["download_url"])
+    archive = zipfile.ZipFile(io.BytesIO(resp.content))
+    assert "mascot/videos/look.mp4" in archive.namelist()
+    assert json.loads(archive.read("mascot/manifest.json"))["look"]["src"] == "videos/look.mp4"
+    readme = archive.read("mascot/README.md").decode("utf-8")
+    assert "Suivi du curseur" in readme and "idle" in readme
+    _no_em_dash(readme)
+
+    # Refaire le suivi : un seul nouveau clip de 8 s, avec la nouvelle description
+    client.post(f"/api/jobs/{job_id}/look", json={"prompt": "the head looks around"})
+    assert len(fal_fake.video_calls) == 3 and "looks around" in fal_fake.video_calls[-1][0]
+    job = client.get(f"/api/jobs/{job_id}").json()
+    assert job["actual_cost_usd"] == round(CLIP + 2 * look_cost, 4)
+    assert client.get("/api/cost").json()["reserved_usd"] == 0
+
+
+def test_look_name_is_reserved(client):
+    character_id = _character(client)
+    resp = _generate(client, character_id, states=[{"name": "look", "prompt": "x", "loop": True}])
+    assert resp.status_code == 400
     _no_em_dash(resp.json()["detail"])
 
 

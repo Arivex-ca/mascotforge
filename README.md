@@ -61,6 +61,8 @@ que les variables d'environnement).
 | POST | `/api/generate` | `{"character_id", "states": [{"name", "prompt", "loop"}]}` ou `{"character_id", "usage"}` -> `{"job_id"}` |
 | GET | `/api/jobs/{job_id}` | statut, états (`video_url`, `model`, `error`, `loop`), coût estimé et réel |
 | POST | `/api/jobs/{job_id}/retry` | relance les seuls états en échec (409 s'il n'y en a pas) |
+| POST | `/api/jobs/{job_id}/states/{etat}/regenerate` | `{"prompt"?}` : nouveau clip pour un seul état |
+| POST | `/api/jobs/{job_id}/look` | `{"prompt"?}` : ajoute ou refait le suivi du curseur (clip de 8 s) |
 | GET | `/api/jobs/{job_id}/manifest.json` | manifest du widget pour l'aperçu |
 | POST | `/api/export/{job_id}` | `{"download_url"}` (409 si le job n'est pas terminé) |
 | GET | `/api/exports/{filename}` | téléchargement du zip |
@@ -91,6 +93,7 @@ Surchargeables par variables d'environnement :
   jobs lancés en même temps ne dépassent pas le plafond ensemble.
 - Un clip généré est compté même si son téléchargement échoue ; la relance le
   retélécharge sans le repayer.
+- Suivi du curseur : un clip de 8 s, environ 0,67 $.
 - Tarif du modèle pro : estimation, à vérifier sur la page tarif fal.ai.
 
 ## Export
@@ -114,8 +117,23 @@ Surchargeables par variables d'environnement :
 
 Attributs : `click-state` (défaut `clicked` s'il existe), `sleep-state` (défaut
 `sleeping` s'il existe), `sleep-after` (secondes, 0 pour désactiver), `switch`
-(`loop-end` par défaut, ou `immediate`), `parallax`, `label`. Le widget lit
-aussi les manifests v1 de la V2.
+(`loop-end` par défaut, ou `immediate`), `parallax`, `follow-cursor`, `label`.
+Le widget lit aussi les manifests v1 de la V2.
+
+### Suivi du curseur
+
+Option du studio (étape 3) : Kling génère un clip de 8 s où seule la tête
+regarde à gauche, à droite, en haut et en bas, en partant et en revenant à la
+pose de référence. Au détourage, le pipeline recale l'intérieur de la tête sur
+la première image pour mesurer la direction du regard sur chaque image, et
+l'écrit dans le manifest (`"look": {"src", "fps", "map"}`). Le clip garde 12
+images par seconde, chacune en image clé.
+
+Au repos, le widget n'en lit pas le clip : il affiche l'image dont le regard
+est le plus proche du curseur, avec un lissage, puis revient à la boucle de
+repos 2,5 s après le dernier mouvement. Tout `play()` coupe le suivi. Le clip
+ne se charge qu'au premier mouvement de souris ; le suivi reste éteint au
+toucher, avec `prefers-reduced-motion` ou `follow-cursor="false"`.
 
 ## Tests
 
@@ -133,7 +151,7 @@ navigateur.
 - `backend/main.py` : app FastAPI, routes, fichiers statiques
 - `backend/states.py` : presets d'états et validation des états libres
 - `backend/fal.py` : client fal.ai (upload, text-to-image, image-to-video)
-- `backend/alpha.py` : fond vert et détourage ffmpeg
+- `backend/alpha.py` : fond vert, détourage ffmpeg, mesure du regard
 - `backend/pipeline.py` : jobs, fallback, téléchargement, relance, reprise au démarrage
 - `backend/cost.py` : compteur mensuel, réservations, plafond
 - `backend/exporter.py` : manifest v2, dossier importable, zip

@@ -222,7 +222,7 @@ async def generate_character_image(prompt: str) -> str:
 
 
 async def generate_state_video(
-    image_url: str, motion: str, model: str | None = None
+    image_url: str, motion: str, model: str | None = None, duration_s: int | None = None
 ) -> tuple[str, str]:
     """Genere le clip video d'un etat. Retourne (url_video, modele_utilise).
 
@@ -236,7 +236,7 @@ async def generate_state_video(
         "end_image_url": image_url,
         "prompt": build_motion_prompt(motion),
         "negative_prompt": VIDEO_NEGATIVE_PROMPT,
-        "duration": str(settings.VIDEO_DURATION_S),  # Kling : duree discrete "3".."15"
+        "duration": str(duration_s or settings.VIDEO_DURATION_S),  # Kling : "3".."15"
         "generate_audio": False,  # le widget est muet ; l'audio coute 50 % de plus
     }
     result = await _submit_and_wait(chosen, payload)

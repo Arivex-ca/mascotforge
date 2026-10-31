@@ -94,6 +94,7 @@ def _job_to_response(job: dict) -> JobResponse:
                 video_url=info.get("video_url"),
                 model=info.get("model"),
                 error=info.get("error"),
+                kind=info.get("kind"),
             )
             for state, info in job["states"].items()
         },
@@ -127,6 +128,7 @@ def api_presets() -> PresetsResponse:
         default=states_module.DEFAULT_PRESET,
         presets=states_module.PRESETS,
         cost_per_state_usd=pipeline.clip_cost_usd(settings.i2v_model()),
+        look_cost_usd=pipeline.clip_cost_usd(settings.i2v_model(), settings.LOOK_DURATION_S),
         max_states=states_module.MAX_STATES,
     )
 
@@ -278,6 +280,28 @@ async def api_regenerate_state(job_id: str, state: str, body: RegenerateRequest)
         await pipeline.run_job(job_id, only=[state], reserved_usd=reserved)
     else:
         _start(pipeline.run_job(job_id, only=[state], reserved_usd=reserved))
+    return GenerateResponse(job_id=job_id)
+
+
+@app.post("/api/jobs/{job_id}/look", response_model=GenerateResponse)
+async def api_add_look(job_id: str, body: RegenerateRequest) -> GenerateResponse:
+    """Ajoute (ou refait) le suivi du curseur d'une mascotte."""
+    _get_job_or_404(job_id)
+    if not settings.fal_key_configured():
+        raise _no_fal_key_error()
+    try:
+        reserved = pipeline.prepare_look(job_id, body.prompt)
+    except pipeline.NothingToRetryError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except states_module.InvalidStatesError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except pipeline.CapExceededError as exc:
+        raise HTTPException(status_code=429, detail=str(exc))
+    only = [states_module.LOOK_STATE]
+    if settings.sync_jobs():
+        await pipeline.run_job(job_id, only=only, reserved_usd=reserved)
+    else:
+        _start(pipeline.run_job(job_id, only=only, reserved_usd=reserved))
     return GenerateResponse(job_id=job_id)
 
 

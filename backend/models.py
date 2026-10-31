@@ -40,6 +40,7 @@ class StateInfo(BaseModel):
     video_url: str | None = None
     model: str | None = None
     error: str | None = None
+    kind: str | None = None  # "look" : clip du suivi du curseur, pas un etat jouable
 
 
 class JobResponse(BaseModel):
@@ -76,4 +77,5 @@ class PresetsResponse(BaseModel):
     default: str
     presets: dict[str, dict]
     cost_per_state_usd: float
+    look_cost_usd: float  # clip du suivi du curseur (plus long qu'un etat)
     max_states: int

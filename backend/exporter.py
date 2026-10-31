@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from backend import settings
+from backend import states as states_module
 
 MANIFEST_VERSION = 2
 
@@ -47,7 +48,7 @@ Les etats en boucle ({loop_list}) tournent tant qu'ils sont actifs. Les autres
 jouent une fois puis reviennent a l'etat precedent. Le changement d'etat attend
 la fin du clip en cours, sur la pose commune, pour eviter tout saut :
 `play(etat, {{ immediate: true }})` force un changement sans attendre.
-
+{look_note}
 ## Provenance
 
 - Job MascotForge : {job_id}
@@ -64,9 +65,17 @@ def _short_id(job_id: str) -> str:
     return job_id[:8]
 
 
+def _look(job: dict) -> dict | None:
+    """Clip du suivi du curseur, s'il est termine et analyse."""
+    info = job["states"].get(states_module.LOOK_STATE)
+    if info and info.get("kind") == "look" and info["status"] == "done" and info.get("look_map"):
+        return info
+    return None
+
+
 def build_manifest(job: dict, src_for: Callable[[str], str], generated_at: str) -> dict:
     """Manifest v2 du widget. src_for(etat) donne le chemin du clip."""
-    return {
+    manifest = {
         "version": MANIFEST_VERSION,
         "name": f"mascot-{_short_id(job['job_id'])}",
         "default_state": job["default_state"],
@@ -74,11 +83,20 @@ def build_manifest(job: dict, src_for: Callable[[str], str], generated_at: str) 
         "states": {
             name: {"src": src_for(name), "loop": info["loop"]}
             for name, info in job["states"].items()
-            if info["status"] == "done"
+            if info["status"] == "done" and info.get("kind") != "look"
         },
         "generated_at": generated_at,
         "models": {name: info.get("model") for name, info in job["states"].items()},
     }
+    look = _look(job)
+    if look:
+        # Pas un etat jouable : le widget affiche l'image qui regarde vers le curseur.
+        manifest["look"] = {
+            "src": src_for(states_module.LOOK_STATE),
+            "fps": settings.LOOK_FPS,
+            "map": look["look_map"],
+        }
+    return manifest
 
 
 def build_export(job: dict) -> dict:
@@ -90,7 +108,9 @@ def build_export(job: dict) -> dict:
         )
     job_id = job["job_id"]
     name = f"mascot-{_short_id(job_id)}"
-    state_names = list(job["states"])
+    look = _look(job)
+    playable = [s for s, info in job["states"].items() if info.get("kind") != "look"]
+    state_names = playable + ([states_module.LOOK_STATE] if look else [])
 
     root = settings.exports_dir() / name
     if root.exists():
@@ -126,14 +146,22 @@ def build_export(job: dict) -> dict:
     )
 
     # 4. Le README (francais, sans em dash)
-    loops = [s for s in state_names if job["states"][s]["loop"]]
+    loops = [s for s in playable if job["states"][s]["loop"]]
+    look_note = (
+        "\n## Suivi du curseur\n\n"
+        "Au repos, la tete regarde vers le curseur (clip `videos/look.mp4`). Le suivi\n"
+        "se coupe si le visiteur demande moins d'animations, et rien ne bouge au\n"
+        "toucher. Attribut `follow-cursor=\"false\"` pour le desactiver.\n"
+        if look else ""
+    )
     readme = README_TEMPLATE.format(
         name=name,
         job_id=job_id,
         generated_at=generated_at,
-        state_list=", ".join(state_names),
+        state_list=", ".join(playable),
         loop_list=", ".join(loops),
-        example=next((s for s in state_names if s != job["default_state"]), state_names[0]),
+        example=next((s for s in playable if s != job["default_state"]), playable[0]),
+        look_note=look_note,
     )
     if "\u2014" in readme:  # garde-fou : aucun em dash dans les textes utilisateur
         raise ExportError("Le template README contient un em dash (interdit).")

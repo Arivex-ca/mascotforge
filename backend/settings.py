@@ -73,6 +73,8 @@ def i2v_rate_usd(model: str) -> float:
 # Pipeline
 # ---------------------------------------------------------------------------
 VIDEO_DURATION_S = 3  # duree discrete Kling ("3" a "15")
+LOOK_DURATION_S = 8  # clip du suivi du curseur : la tete regarde dans 4 directions
+LOOK_FPS = 12  # images gardees pour le suivi (24 i/s doublerait le poids sans gain visible)
 I2V_PARALLELISM = 3  # generations video en parallele, max 3
 
 

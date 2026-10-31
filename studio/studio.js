@@ -582,9 +582,18 @@ function afficherApercu(job) {
   avatar.setAttribute("label", "Aperçu de la mascotte");
   scene.appendChild(avatar);
 
+  var suivi = job.states.look && job.states.look.kind === "look" ? job.states.look : null;
+  var prixSuivi = presets ? " (" + formaterMontant(presets.look_cost_usd) + ")" : "";
+  $("btn-suivi").textContent =
+    (suivi && suivi.status === "done" ? "Refaire le suivi du curseur" : "Ajouter le suivi du curseur") + prixSuivi;
+  $("suivi-texte").textContent = suivi && suivi.status === "done"
+    ? "Suivi du curseur actif : bouge la souris autour de la page, la tête la suit au repos."
+    : "Suivi du curseur : au repos, la tête regarde vers la souris (clip de 8 secondes).";
+
   var controles = $("controles-etats");
   controles.innerHTML = "";
   Object.keys(job.states).forEach(function (nom) {
+    if (job.states[nom].kind === "look") { return; } // pas un état jouable
     var bouton = document.createElement("button");
     bouton.type = "button";
     bouton.textContent = nom;
@@ -598,6 +607,26 @@ function afficherApercu(job) {
       boutons[i].setAttribute("aria-pressed", String(boutons[i].textContent === ev.detail.to));
     }
   });
+}
+
+async function ajouterSuivi() {
+  if (!jobId) { return; }
+  var bouton = $("btn-suivi");
+  occuper(bouton, "Envoi…");
+  var r = await api("/api/jobs/" + encodeURIComponent(jobId) + "/look", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}"
+  });
+  liberer(bouton);
+  if (gererErreurReseau(r, "ajout du suivi du curseur")) { return; }
+  if (r.statut !== 200) {
+    if (r.statut === 429) { rafraichirCout(); }
+    afficherBandeau(messageErreur(r, "L'ajout du suivi du curseur a échoué"), "erreur");
+    return;
+  }
+  cacherBandeau();
+  suivreJob(jobId);
 }
 
 function changerFond(classe) {
@@ -669,6 +698,7 @@ function init() {
   $("btn-generer").addEventListener("click", lancerGeneration);
   $("btn-relancer").addEventListener("click", relancerEchecs);
   $("btn-export").addEventListener("click", exporterDossier);
+  $("btn-suivi").addEventListener("click", ajouterSuivi);
   $("bandeau-fermer").addEventListener("click", cacherBandeau);
   $("controles-fond").addEventListener("click", function (ev) {
     var fond = ev.target.dataset && ev.target.dataset.fond;

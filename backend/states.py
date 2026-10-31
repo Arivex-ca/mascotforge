@@ -57,6 +57,15 @@ PRESETS: dict[str, dict] = {
 
 DEFAULT_PRESET = "agent"
 
+# Suivi du curseur : un clip ou seule la tete regarde dans les 4 directions.
+# Le widget ne le lit pas : il affiche l'image qui regarde vers le curseur.
+LOOK_STATE = "look"
+LOOK_PROMPT = (
+    "only the head moves, the body stays still: the head turns to look to the left, "
+    "back to the center, to the right, back to the center, up, back to the center, "
+    "down, back to the center"
+)
+
 
 class InvalidStatesError(ValueError):
     """Liste d'etats refusee (l'API repond 400 avec ce message)."""
@@ -98,6 +107,10 @@ def validate_states(states: list[dict]) -> list[dict]:
             raise InvalidStatesError(
                 f"Nom d'etat invalide : {name!r}. Utilise des minuscules, chiffres "
                 "et tirets (32 caracteres max), en commencant par une lettre."
+            )
+        if name == LOOK_STATE:
+            raise InvalidStatesError(
+                f"Le nom {LOOK_STATE!r} est reserve au suivi du curseur : choisis-en un autre."
             )
         if name in seen:
             raise InvalidStatesError(f"L'etat {name!r} apparait deux fois.")

@@ -16,6 +16,11 @@
  * clips start and end on the same pose, so the switch shows no jump.
  * play(state, { immediate: true }) or switch="immediate" switches at once.
  *
+ * Cursor tracking (optional): "look": { "src", "fps", "map": [[dx, dy], ...] }
+ * is a clip where only the head looks around. It is never played: at rest,
+ * the widget shows the frame whose gaze (map) is closest to the cursor. Off on
+ * touch, with prefers-reduced-motion, or with follow-cursor="false".
+ *
  * Attributes:
  *   manifest     URL of the manifest.json file
  *   label        accessible name (default: manifest name)
@@ -24,6 +29,7 @@
  *   sleep-after  seconds of inactivity before sleep (default 60, 0 disables)
  *   switch       "loop-end" (default) or "immediate"
  *   parallax     "true" / "false" (default true), off with prefers-reduced-motion
+ *   follow-cursor "true" / "false" (default true when the manifest has "look")
  *
  * DOM events: statechange { from, to }, sleep, wake
  * Public methods: play(state, { immediate }) -> Promise, wake(), getState(),
@@ -33,6 +39,11 @@
 const LEGACY_LOOP_STATES = new Set(["idle", "talking", "thinking", "sleeping"]);
 const DEFAULT_SLEEP_AFTER = 60;
 const ACTIVITY_THROTTLE_MS = 500;
+const LOOK_RELEASE_MS = 2500; // no pointer move for this long: the head returns to center
+const LOOK_EASE_MS = 140; // gaze smoothing time constant, same on 60 Hz and 120 Hz screens
+const LOOK_SEEK_TIMEOUT_MS = 500;
+
+const clamp1 = (v) => Math.max(-1, Math.min(1, v));
 
 const VERTEX_SHADER = `
 attribute vec2 p;
@@ -126,6 +137,7 @@ class MascotAvatar extends HTMLElement {
     this._manifest = null;
     this._loadedManifestUrl = null;
     this._ready = null;
+    this._look = null; // cursor tracking, see _trackCursor
 
     const shadow = this.attachShadow({ mode: "open" });
     const style = document.createElement("style");
@@ -171,6 +183,7 @@ class MascotAvatar extends HTMLElement {
     };
     this._onPointerMove = (ev) => {
       this._applyParallax(ev);
+      this._trackCursor(ev);
       this._handleActivity(true);
     };
     this._onActivity = () => this._handleActivity(false);
@@ -201,6 +214,7 @@ class MascotAvatar extends HTMLElement {
     window.removeEventListener("touchstart", this._onActivity);
     window.removeEventListener("keydown", this._onActivity);
     this._clearSleepTimer();
+    this._stopLook(false);
     if (this._raf !== null) cancelAnimationFrame(this._raf);
     this._raf = null;
   }
@@ -230,6 +244,12 @@ class MascotAvatar extends HTMLElement {
     return this.ready().then(() => {
       if (!this._clips.has(state)) {
         console.warn("[mascot-avatar] unknown state ignored:", state);
+        return;
+      }
+      if (this._look && this._look.active) {
+        // The head is following the cursor: the requested state takes over at once.
+        this._stopLook(false);
+        this._show(state);
         return;
       }
       const immediate =
@@ -287,6 +307,18 @@ class MascotAvatar extends HTMLElement {
     this._clips.clear();
     this._state = null;
     this._pending = null;
+    this._stopLook(false);
+    if (this._look && this._look.video) this._look.video.remove();
+    this._look = null;
+    const look = manifest && manifest.look;
+    if (look && look.src && Array.isArray(look.map) && look.map.length && look.fps > 0) {
+      // The clip itself loads on the first mouse move: nothing extra on phones.
+      this._look = {
+        src: new URL(look.src, base).href, fps: look.fps, map: look.map, video: null,
+        active: false, target: [0, 0], gaze: [0, 0], frame: -1,
+        seekingSince: 0, lastMove: 0, lastTick: 0,
+      };
+    }
 
     this._renderer = null;
     if (manifest.alpha === "stacked") {
@@ -438,16 +470,23 @@ class MascotAvatar extends HTMLElement {
   }
 
   _startRendering() {
-    if (!this._renderer || this._raf !== null) return;
+    if (this._raf !== null) return;
+    if (!this._renderer && !(this._look && this._look.active)) return;
     this._raf = requestAnimationFrame(this._tick);
   }
 
   _renderFrame() {
     this._raf = null;
-    if (!this._renderer || !this.isConnected) return;
-    const clip = this._clips.get(this._state);
-    if (clip) this._renderer.draw(clip.video);
-    this._raf = requestAnimationFrame(this._tick);
+    if (!this.isConnected) return;
+    const look = this._look;
+    if (look && look.active) this._updateLook();
+    const looking = !!(this._look && this._look.active);
+    if (this._renderer) {
+      const clip = this._clips.get(this._state);
+      const video = looking ? this._look.video : clip && clip.video;
+      if (video) this._renderer.draw(video);
+    }
+    if (this._renderer || looking) this._raf = requestAnimationFrame(this._tick);
   }
 
   /* -------- click / sleep / wake / parallax -------- */
@@ -503,6 +542,129 @@ class MascotAvatar extends HTMLElement {
     const dy = Math.max(-1, Math.min(1, (ev.clientY - rect.top - rect.height / 2) / window.innerHeight));
     const range = 6; // +/- 6 px, subtle
     this._stage.style.translate = (dx * range).toFixed(1) + "px " + (dy * range).toFixed(1) + "px";
+  }
+
+  /* ---------------- cursor tracking ---------------- */
+
+  _followAllowed() {
+    return (
+      !!this._look &&
+      !this._reducesMotion &&
+      this.getAttribute("follow-cursor") !== "false" &&
+      this._state !== null &&
+      this._state === this._defaultState &&
+      !this._pending
+    );
+  }
+
+  _trackCursor(ev) {
+    const look = this._look;
+    if (!look || ev.pointerType === "touch" || !this._followAllowed()) return;
+    const rect = this.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const reach = Math.max(window.innerWidth, window.innerHeight) / 2;
+    look.target = [
+      clamp1((ev.clientX - rect.left - rect.width / 2) / reach),
+      clamp1((ev.clientY - rect.top - rect.height / 2) / reach),
+    ];
+    look.lastMove = performance.now();
+    const video = this._lookVideo();
+    if (!look.active && video.readyState >= 2) this._startLook();
+  }
+
+  _lookVideo() {
+    const look = this._look;
+    if (look.video) return look.video;
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.preload = "auto";
+    video.setAttribute("aria-hidden", "true");
+    if (this._renderer) {
+      video.crossOrigin = "anonymous";
+      video.className = "feed";
+    }
+    video.addEventListener("seeked", () => {
+      look.seekingSince = 0;
+    });
+    video.addEventListener("loadeddata", () => {
+      const recent = performance.now() - look.lastMove < LOOK_RELEASE_MS;
+      if (this._look === look && recent && !look.active && this._followAllowed()) this._startLook();
+    });
+    video.addEventListener("error", () => {
+      console.warn("[mascot-avatar] look clip failed to load:", video.src);
+      if (this._look === look) {
+        this._stopLook(true);
+        this._look = null;
+      }
+      video.remove();
+    });
+    video.src = look.src;
+    this._stage.appendChild(video);
+    look.video = video;
+    return video;
+  }
+
+  _startLook() {
+    const look = this._look;
+    const clip = this._clips.get(this._state);
+    if (clip) {
+      clip.video.pause();
+      clip.video.classList.remove("active");
+    }
+    look.active = true;
+    look.gaze = [0, 0];
+    look.frame = -1;
+    look.lastTick = performance.now();
+    look.video.classList.add("active");
+    this._startRendering();
+  }
+
+  _stopLook(resume) {
+    const look = this._look;
+    if (!look || !look.active) return;
+    look.active = false;
+    look.video.classList.remove("active");
+    if (!resume) return;
+    const clip = this._clips.get(this._state);
+    if (clip) {
+      clip.video.classList.add("active");
+      clip.video.currentTime = 0;
+      this._playVideo(clip.video);
+    }
+  }
+
+  _updateLook() {
+    const look = this._look;
+    const now = performance.now();
+    if (now - look.lastMove > LOOK_RELEASE_MS) look.target = [0, 0];
+    const k = 1 - Math.exp(-(now - look.lastTick) / LOOK_EASE_MS);
+    look.lastTick = now;
+    look.gaze[0] += (look.target[0] - look.gaze[0]) * k;
+    look.gaze[1] += (look.target[1] - look.gaze[1]) * k;
+
+    // One seek at a time: the next frame is chosen once the browser shows this one.
+    if (look.seekingSince && now - look.seekingSince > LOOK_SEEK_TIMEOUT_MS) look.seekingSince = 0;
+    let best = 0;
+    let bestDist = Infinity;
+    look.map.forEach(([dx, dy], i) => {
+      const dist = (dx - look.gaze[0]) ** 2 + (dy - look.gaze[1]) ** 2;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = i;
+      }
+    });
+    if (best !== look.frame && !look.seekingSince) {
+      look.frame = best;
+      look.seekingSince = now;
+      look.video.currentTime = (best + 0.5) / look.fps;
+    }
+
+    const released = look.target[0] === 0 && look.target[1] === 0;
+    if (released && Math.hypot(look.gaze[0], look.gaze[1]) < 0.03 && !look.seekingSince) {
+      this._stopLook(true); // back at the shared pose: the rest loop takes over
+    }
   }
 }
 
