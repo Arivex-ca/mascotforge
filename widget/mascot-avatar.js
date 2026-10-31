@@ -16,6 +16,11 @@
  * clips start and end on the same pose, so the switch shows no jump.
  * play(state, { immediate: true }) or switch="immediate" switches at once.
  *
+ * Code mascots: "engine": "blob" (Blob Atelier) or "3d" (Wobnimo), with
+ * "engine_src" (the engine script) and "engine_config" (its attributes). The
+ * widget loads the engine once per page and relays play(); the engine draws
+ * and animates the mascot, and follows the cursor on its own.
+ *
  * Cursor tracking (optional): "look": { "src", "fps", "map": [[dx, dy], ...] }
  * is a clip where only the head looks around. It is never played: at rest,
  * the widget shows the frame whose gaze (map) is closest to the cursor. Off on
@@ -44,6 +49,45 @@ const LOOK_EASE_MS = 140; // gaze smoothing time constant, same on 60 Hz and 120
 const LOOK_SEEK_TIMEOUT_MS = 500;
 
 const clamp1 = (v) => Math.max(-1, Math.min(1, v));
+
+// Open source engines for code mascots (MIT, shipped in engines/ next to the manifest).
+const ENGINES = {
+  blob: { tag: "agent-mascot", module: false }, // Blob Atelier, Victoria Wu
+  "3d": { tag: "wobnimo-mascot", module: true }, // Wobnimo, Pourya Akhbari
+};
+
+// Common names that differ between engines: play("talking") works on both.
+const STATE_ALIASES = {
+  talking: ["speaking"],
+  speaking: ["talking"],
+  happy: ["celebrating", "done"],
+  celebrating: ["happy", "done"],
+  done: ["celebrating", "happy"],
+  clicked: ["happy", "celebrating"],
+};
+
+const engineScripts = new Map(); // src -> Promise, one load per page
+
+function loadEngine(src, spec) {
+  if (customElements.get(spec.tag)) return Promise.resolve();
+  if (!engineScripts.has(src)) {
+    engineScripts.set(
+      src,
+      new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        if (spec.module) script.type = "module";
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = () => {
+          engineScripts.delete(src);
+          reject(new Error("engine failed to load: " + src));
+        };
+        document.head.appendChild(script);
+      })
+    );
+  }
+  return engineScripts.get(src).then(() => customElements.whenDefined(spec.tag));
+}
 
 const VERTEX_SHADER = `
 attribute vec2 p;
@@ -138,6 +182,7 @@ class MascotAvatar extends HTMLElement {
     this._loadedManifestUrl = null;
     this._ready = null;
     this._look = null; // cursor tracking, see _trackCursor
+    this._engine = null; // code mascot: { el, states, ready }
 
     const shadow = this.attachShadow({ mode: "open" });
     const style = document.createElement("style");
@@ -229,7 +274,7 @@ class MascotAvatar extends HTMLElement {
   /* ---------------- public API ---------------- */
 
   get states() {
-    return Array.from(this._clips.keys());
+    return this._engine ? Array.from(this._engine.states) : Array.from(this._clips.keys());
   }
 
   getState() {
@@ -240,10 +285,11 @@ class MascotAvatar extends HTMLElement {
     return this._ready || Promise.resolve();
   }
 
-  play(state, options) {
+  play(requested, options) {
     return this.ready().then(() => {
-      if (!this._clips.has(state)) {
-        console.warn("[mascot-avatar] unknown state ignored:", state);
+      const state = this._resolveState(requested);
+      if (!state) {
+        console.warn("[mascot-avatar] unknown state ignored:", requested);
         return;
       }
       if (this._look && this._look.active) {
@@ -288,8 +334,9 @@ class MascotAvatar extends HTMLElement {
       const manifest = await res.json();
       this._manifest = manifest;
       this._build(manifest, new URL(".", url).href);
+      if (this._engine) await this._engine.ready;
       this._applyRole();
-      const first = this._clips.has(manifest.default_state)
+      const first = this._hasState(manifest.default_state)
         ? manifest.default_state
         : this._firstLoopState();
       this._defaultState = first;
@@ -310,6 +357,12 @@ class MascotAvatar extends HTMLElement {
     this._stopLook(false);
     if (this._look && this._look.video) this._look.video.remove();
     this._look = null;
+    if (this._engine) this._engine.el.remove();
+    this._engine = null;
+    if (manifest && manifest.engine && manifest.engine !== "video") {
+      this._buildEngine(manifest, base);
+      return;
+    }
     const look = manifest && manifest.look;
     if (look && look.src && Array.isArray(look.map) && look.map.length && look.fps > 0) {
       // The clip itself loads on the first mouse move: nothing extra on phones.
@@ -357,21 +410,51 @@ class MascotAvatar extends HTMLElement {
     if (this._clips.size === 0) this._fallback.classList.add("visible");
   }
 
+  _buildEngine(manifest, base) {
+    const spec = ENGINES[manifest.engine];
+    if (!spec || !manifest.engine_src) throw new Error("unknown engine: " + manifest.engine);
+    const el = document.createElement(spec.tag);
+    for (const [name, value] of Object.entries(manifest.engine_config || {})) {
+      el.setAttribute(name, String(value));
+    }
+    // Blob Atelier ignores prefers-reduced-motion: "still" freezes it. Wobnimo honours it.
+    if (this._reducesMotion && spec.tag === "agent-mascot") el.setAttribute("still", "");
+    const followOff = this.getAttribute("follow-cursor") === "false";
+    if (followOff && spec.tag === "wobnimo-mascot") el.setAttribute("interactive", "false");
+    el.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
+    this._stage.appendChild(el);
+    const ready = loadEngine(new URL(manifest.engine_src, base).href, spec).then(() => {
+      if (followOff && typeof el.lookAt === "function") el.lookAt(0, 0);
+    });
+    this._engine = { el, states: Object.keys(manifest.states || {}), ready };
+    this._canvas.classList.remove("on");
+  }
+
+  _hasState(state) {
+    return this._engine ? this._engine.states.includes(state) : this._clips.has(state);
+  }
+
+  _resolveState(state) {
+    if (this._hasState(state)) return state;
+    return (STATE_ALIASES[state] || []).find((alt) => this._hasState(alt)) || null;
+  }
+
   _firstLoopState() {
+    if (this._engine) return this._engine.states[0] || null;
     for (const [state, clip] of this._clips) if (clip.loop) return state;
     return this._clips.keys().next().value || null;
   }
 
   _clickState() {
     const attr = this.getAttribute("click-state");
-    if (attr !== null) return this._clips.has(attr) ? attr : null;
-    return this._clips.has("clicked") ? "clicked" : null;
+    if (attr !== null) return this._hasState(attr) ? attr : null;
+    return this._hasState("clicked") ? "clicked" : null;
   }
 
   _sleepState() {
     const attr = this.getAttribute("sleep-state");
-    if (attr !== null) return this._clips.has(attr) ? attr : null;
-    return this._clips.has("sleeping") ? "sleeping" : null;
+    if (attr !== null) return this._hasState(attr) ? attr : null;
+    return this._hasState("sleeping") ? "sleeping" : null;
   }
 
   _applyRole() {
@@ -390,6 +473,10 @@ class MascotAvatar extends HTMLElement {
 
   _request(state, immediate) {
     if (state === this._state && !this._pending) return Promise.resolve();
+    if (this._engine) {
+      this._show(state); // the engine blends between its states itself
+      return Promise.resolve();
+    }
     const current = this._clips.get(this._state);
     const playing = current && !current.video.paused && !current.video.ended;
     if (immediate || !playing) {
@@ -406,6 +493,15 @@ class MascotAvatar extends HTMLElement {
 
   _show(next) {
     const from = this._state;
+    if (this._engine) {
+      this._state = next;
+      this._engine.el.setAttribute("state", next);
+      this._fallback.classList.remove("visible");
+      if (from !== next) {
+        this.dispatchEvent(new CustomEvent("statechange", { detail: { from, to: next } }));
+      }
+      return;
+    }
     const target = this._clips.get(next);
     if (!target) return;
     const leaving = this._clips.get(from);

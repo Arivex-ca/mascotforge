@@ -4,6 +4,12 @@ Brique produit Arivex : tu décris une mascotte (ou tu envoies son image), tu
 choisis ses états d'animation, et l'outil sort une mascotte animée à fond
 transparent, prête à coller dans un site ou devant un agent IA.
 
+Trois styles, un seul widget `<mascot-avatar>` et une seule API `play(etat)` :
+
+- **Vidéo IA** : ton personnage animé par Kling, états à la demande (pipeline ci-dessous).
+- **Blob en code** : Blob Atelier (Victoria Wu, MIT), gratuit et instantané.
+- **3D en code** : Wobnimo (Pourya Akhbari, MIT), 20 personnages, gratuit et instantané.
+
 Pipeline :
 
 1. Personnage : image envoyée (PNG détouré conseillé) ou prompt texte. Flux
@@ -65,6 +71,9 @@ que les variables d'environnement).
 | POST | `/api/jobs/{job_id}/look` | `{"prompt"?}` : ajoute ou refait le suivi du curseur (clip de 8 s) |
 | GET | `/api/jobs/{job_id}/manifest.json` | manifest du widget pour l'aperçu |
 | POST | `/api/export/{job_id}` | `{"download_url"}` (409 si le job n'est pas terminé) |
+| GET | `/api/engines` | styles en code : réglages, états, crédits |
+| GET | `/api/engines/{moteur}/manifest.json?<réglages>` | manifest d'aperçu d'une mascotte en code (400 si un réglage est refusé) |
+| POST | `/api/engines/{moteur}/export` | `{"config"}` -> `{"download_url"}` : zip avec le moteur et sa licence |
 | GET | `/api/exports/{filename}` | téléchargement du zip |
 | GET | `/videos/{job_id}/{etat}.mp4` | clip détouré |
 | GET | `/api/cost` | `{"month", "spent_usd", "reserved_usd", "cap_usd", "mascots_completed"}` |
@@ -120,6 +129,23 @@ Attributs : `click-state` (défaut `clicked` s'il existe), `sleep-state` (défau
 (`loop-end` par défaut, ou `immediate`), `parallax`, `follow-cursor`, `label`.
 Le widget lit aussi les manifests v1 de la V2.
 
+### Mascottes en code
+
+Le studio propose deux styles sans IA ni coût, choisis en haut de la page :
+
+| Style | Moteur | Réglages | États |
+|---|---|---|---|
+| `blob` | Blob Atelier, Victoria Wu, MIT | forme (8), matière (6), couleur (11 ou `#rrggbb`), yeux, joues | idle, listening, thinking, talking, working, happy, done, error |
+| `3d` | Wobnimo, Pourya Akhbari, MIT | personnage (20, dont Volt le robot à LED) | idle, listening, thinking, speaking, working, error, celebrating, surprised, sleeping, sad |
+
+Le manifest porte `"engine"`, `"engine_src"` (le moteur, livré dans
+`engines/` à côté) et `"engine_config"`. Le widget charge le moteur une fois
+par page et relaie `play()` ; les noms courants passent d'un moteur à l'autre
+(`talking` et `speaking`, `happy` et `celebrating`). Ces mascottes suivent le
+curseur d'elles-mêmes, et aucune n'appelle de serveur tiers : MascotForge ne
+propose pas les animaux 3D de Blob Atelier, qui chargent three.js depuis un CDN.
+Provenance, versions et empreintes des moteurs : `engines/README.md`.
+
 ### Suivi du curseur
 
 Option du studio (étape 3) : Kling génère un clip de 8 s où seule la tête
@@ -155,5 +181,7 @@ navigateur.
 - `backend/pipeline.py` : jobs, fallback, téléchargement, relance, reprise au démarrage
 - `backend/cost.py` : compteur mensuel, réservations, plafond
 - `backend/exporter.py` : manifest v2, dossier importable, zip
+- `backend/engines.py` : mascottes en code (moteurs, réglages, manifest)
+- `engines/` : Blob Atelier et Wobnimo, non modifiés, avec leurs licences MIT
 - `widget/mascot-avatar.js` : le composant web
 - `studio/` : l'interface de création

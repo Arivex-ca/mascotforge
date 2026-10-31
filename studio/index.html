@@ -26,6 +26,16 @@
 
 <main>
 
+  <section id="choix-style" aria-labelledby="titre-style">
+    <h2 id="titre-style">Style</h2>
+    <div class="onglets onglets-style" role="tablist" aria-label="Style de mascotte">
+      <button type="button" id="style-video" class="onglet actif" role="tab" aria-selected="true">Vidéo IA (ton personnage)</button>
+      <button type="button" id="style-blob" class="onglet" role="tab" aria-selected="false">Blob en code (gratuit)</button>
+      <button type="button" id="style-3d" class="onglet" role="tab" aria-selected="false">3D en code (gratuit)</button>
+    </div>
+    <p class="muted" id="description-style">Ton image est animée par IA, pour environ 0,25 $ par état.</p>
+  </section>
+
   <section id="etape-1" aria-label="Étape 1 : personnage">
     <h2><span class="num">1</span>Personnage</h2>
     <div class="onglets" role="tablist">
@@ -105,6 +115,31 @@
     <div class="ligne">
       <button type="button" class="primaire" id="btn-export" disabled>Exporter le dossier</button>
       <a id="lien-telechargement" class="lien-telechargement cache" href="#">Télécharger le zip</a>
+    </div>
+  </section>
+
+  <section id="code" class="cache" aria-label="Mascotte en code">
+    <h2>Personnalisation</h2>
+    <form id="formulaire-code" class="formulaire-code">
+      <div id="reglages-code" class="grille-reglages"></div>
+    </form>
+    <div class="apercu-widget">
+      <div class="scene fond-damier" id="scene-code"></div>
+      <div>
+        <p class="muted">Clique un état pour le jouer dans le vrai widget.</p>
+        <div class="controles-etats" id="controles-etats-code"></div>
+        <p class="muted">Fond de test :</p>
+        <div class="controles-etats" id="controles-fond-code">
+          <button type="button" data-fond="fond-damier">Damier</button>
+          <button type="button" data-fond="fond-clair">Clair</button>
+          <button type="button" data-fond="fond-sombre">Sombre</button>
+        </div>
+      </div>
+    </div>
+    <p class="muted credit-code" id="credit-code"></p>
+    <div class="ligne">
+      <button type="button" class="primaire" id="btn-export-code" disabled>Exporter le dossier</button>
+      <a id="lien-telechargement-code" class="lien-telechargement cache" href="#">Télécharger le zip</a>
     </div>
   </section>
 

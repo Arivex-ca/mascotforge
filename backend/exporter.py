@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import json
 import shutil
+import uuid
 from datetime import datetime, timezone
 from typing import Callable
 
+from backend import engines as engines_module
 from backend import settings
 from backend import states as states_module
 
@@ -57,8 +59,77 @@ la fin du clip en cours, sur la pose commune, pour eviter tout saut :
 """
 
 
+ENGINE_README_TEMPLATE = """# {name}
+
+Mascotte animee en code, generee par MascotForge (Arivex).
+Moteur : {credit}.
+
+## Contenu du dossier
+
+- `mascot.js` : le composant web `<mascot-avatar>` (aucune dependance, zero build step)
+- `manifest.json` : moteur, reglages et etats
+- `engines/{script_name}` : le moteur, non modifie
+- `engines/LICENSE` : sa licence MIT, a garder avec le fichier
+
+## Integration (chemins relatifs)
+
+Copiez le dossier `mascot/` a cote de votre page, puis :
+
+```html
+<mascot-avatar manifest="./mascot/manifest.json" label="{name}"></mascot-avatar>
+<script src="./mascot/mascot.js"></script>
+```
+
+## Changer d'etat en JavaScript
+
+```js
+const avatar = document.querySelector("mascot-avatar");
+avatar.play("thinking"); // {state_list}
+```
+
+La mascotte suit le curseur d'elle-meme ; `follow-cursor="false"` fige son
+regard. Les noms courants passent d'un moteur a l'autre : `talking` et
+`speaking`, `happy` et `celebrating` designent le meme etat.
+
+## Credits
+
+{credit} : {source}
+"""
+
+
 class ExportError(Exception):
     pass
+
+
+def build_engine_export(engine: str, config: dict) -> dict:
+    """Export d'une mascotte en code. Retourne {filename, download_url}."""
+    spec = engines_module.get_engine(engine)
+    name = f"mascot-{engine}-{uuid.uuid4().hex[:8]}"
+    script = engines_module.script_path(engine)
+    widget_src = settings.widget_source_file()
+    if not script.is_file() or not widget_src.is_file():
+        raise ExportError("Export impossible : le moteur ou le widget est introuvable dans le projet.")
+
+    root = settings.exports_dir() / name
+    engine_dir = root / "mascot" / "engines"
+    engine_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(widget_src, root / "mascot" / "mascot.js")
+    shutil.copyfile(script, engine_dir / script.name)
+    shutil.copyfile(engines_module.license_path(engine), engine_dir / "LICENSE")
+
+    manifest = engines_module.build_manifest(engine, config, f"engines/{script.name}", name)
+    (root / "mascot" / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    readme = ENGINE_README_TEMPLATE.format(
+        name=name, credit=spec["credit"], source=spec["source"],
+        script_name=script.name, state_list=", ".join(spec["states"]),
+    )
+    if "\u2014" in readme:  # garde-fou : aucun em dash dans les textes utilisateur
+        raise ExportError("Le template README contient un em dash (interdit).")
+    (root / "mascot" / "README.md").write_text(readme, encoding="utf-8")
+
+    shutil.make_archive(str(root), "zip", root_dir=root)
+    filename = f"{name}.zip"
+    return {"filename": filename, "download_url": f"/api/exports/{filename}"}
 
 
 def _short_id(job_id: str) -> str:

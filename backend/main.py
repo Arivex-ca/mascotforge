@@ -9,12 +9,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend import alpha
 from backend import cost as cost_module
+from backend import engines as engines_module
 from backend import exporter, fal as fal_module
 from backend import pipeline, settings
 from backend import states as states_module
@@ -22,6 +23,7 @@ from backend.models import (
     CharacterFromPromptRequest,
     CharacterResponse,
     CostResponse,
+    EngineExportRequest,
     ExportResponse,
     GenerateRequest,
     GenerateResponse,
@@ -334,6 +336,37 @@ def api_export(job_id: str) -> ExportResponse:
     return ExportResponse(**result)
 
 
+# ---------------------------------------------------------------------------
+# Mascottes en code (moteurs open source, gratuites, sans fal.ai)
+# ---------------------------------------------------------------------------
+@app.get("/api/engines")
+def api_engines() -> dict:
+    return engines_module.public_catalog()
+
+
+@app.get("/api/engines/{engine}/manifest.json")
+def api_engine_manifest(engine: str, request: Request):  # type: ignore[no-untyped-def]
+    """Manifest d'apercu : les reglages arrivent en parametres de requete."""
+    try:
+        spec = engines_module.get_engine(engine)
+        return engines_module.build_manifest(
+            engine, dict(request.query_params), f"/engines/{spec['script']}", f"apercu-{engine}"
+        )
+    except engines_module.InvalidEngineError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/api/engines/{engine}/export", response_model=ExportResponse)
+def api_engine_export(engine: str, body: EngineExportRequest) -> ExportResponse:
+    try:
+        result = exporter.build_engine_export(engine, body.config)
+    except engines_module.InvalidEngineError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except exporter.ExportError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return ExportResponse(**result)
+
+
 @app.get("/api/exports/{filename}")
 def api_download_export(filename: str):  # type: ignore[no-untyped-def]
     safe = Path(filename).name
@@ -383,6 +416,9 @@ def root():  # type: ignore[no-untyped-def]
 
 if settings.widget_dir().is_dir():
     app.mount("/widget", StaticFiles(directory=settings.widget_dir(), html=True), name="widget")
+
+if settings.engines_dir().is_dir():
+    app.mount("/engines", StaticFiles(directory=settings.engines_dir()), name="engines")
 
 if settings.studio_dir().is_dir():
     # Sert index.html + ses assets (style.css, studio.js) : sans ce montage,

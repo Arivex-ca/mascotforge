@@ -119,6 +119,11 @@ def widget_dir() -> Path:
     return PROJECT_ROOT / "widget"
 
 
+def engines_dir() -> Path:
+    """Moteurs open source des mascottes en code (voir engines/README.md)."""
+    return PROJECT_ROOT / "engines"
+
+
 def widget_source_file() -> Path:
     """Fichier source du widget V2 copie dans chaque export."""
     override = os.environ.get("MASCOTFORGE_WIDGET_FILE")

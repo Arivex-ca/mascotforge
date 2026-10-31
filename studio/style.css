@@ -217,6 +217,7 @@ textarea:focus { outline: none; border-color: var(--accent); }
 /* ----- Onglets étape 1 ----- */
 
 .onglets { display: flex; gap: 8px; margin-bottom: 14px; }
+.onglets-style { flex-wrap: wrap; }
 
 .onglet {
   border-radius: 8px 8px 0 0;
@@ -261,6 +262,27 @@ textarea:focus { outline: none; border-color: var(--accent); }
   width: 160px; height: 160px; object-fit: contain;
   border-radius: 8px; border: 1px solid var(--bord); background: #101016;
 }
+
+/* ----- Mascottes en code ----- */
+
+.formulaire-code { margin-bottom: 18px; }
+.grille-reglages {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.champ-code select { width: 100%; }
+.champ-code input[type="color"] {
+  width: 100%;
+  height: 40px;
+  background: var(--panneau-clair);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 4px;
+  cursor: pointer;
+}
+.credit-code { margin: 14px 0; }
+.credit-code a { color: var(--accent); }
 
 /* ----- Liste des états (étape 2) ----- */
 
@@ -327,4 +349,8 @@ li[data-statut="failed"] .indicateur { color: var(--rouge); }
   body { padding: 16px; }
   .barre-haut { flex-direction: column; }
   .compteur-cout { text-align: left; }
+}
+
+@media (max-width: 600px) {
+  .grille-reglages { grid-template-columns: 1fr; }
 }

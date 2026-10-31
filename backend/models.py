@@ -59,6 +59,10 @@ class ExportResponse(BaseModel):
     download_url: str
 
 
+class EngineExportRequest(BaseModel):
+    config: dict[str, str] = Field(default_factory=dict)  # reglages du moteur (voir /api/engines)
+
+
 class CostResponse(BaseModel):
     month: str
     spent_usd: float

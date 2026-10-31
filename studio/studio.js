@@ -17,6 +17,21 @@ var intervallePoll = null;
 var presets = null;       // réponse de /api/presets
 var etatsEdites = [];     // [{ name, prompt, loop }]
 var apercuFichierUrl = null; // URL locale de l'image choisie, avant l'envoi
+var moteurs = null;
+var styleActuel = "video";
+var moteurActuel = null;
+var configurationsCode = {};
+var avatarCodeActuel = null;
+var delaiApercuCode = null;
+
+var LIBELLES_REGLAGES = {
+  shape: "Forme",
+  material: "Matière",
+  color: "Couleur",
+  eyes: "Yeux",
+  cheeks: "Joues",
+  character: "Personnage"
+};
 
 function $(id) { return document.getElementById(id); }
 
@@ -80,6 +95,245 @@ function messageErreur(resultat, parDefaut) {
   var detail = resultat.corps && resultat.corps.detail;
   if (typeof detail === "string" && detail) { return detail; }
   return parDefaut + " (erreur " + resultat.statut + ").";
+}
+
+/* ---------- Choix du style et moteurs en code ---------- */
+
+function basculerStyle(style) {
+  var estCode = style !== "video";
+  styleActuel = style;
+  moteurActuel = estCode ? style : null;
+
+  ["etape-1", "etape-2", "etape-3", "etape-4"].forEach(function (id) {
+    $(id).classList.toggle("cache", estCode);
+  });
+  $("code").classList.toggle("cache", !estCode);
+
+  ["video", "blob", "3d"].forEach(function (nom) {
+    var selectionne = nom === style;
+    $("style-" + nom).classList.toggle("actif", selectionne);
+    $("style-" + nom).setAttribute("aria-selected", String(selectionne));
+  });
+
+  $("description-style").textContent = estCode
+    ? "Gratuit et instantané : la mascotte suit le curseur et utilise les états fixes du moteur."
+    : "Ton image est animée par IA, pour environ 0,25 $ par état.";
+
+  if (!estCode) {
+    clearTimeout(delaiApercuCode);
+    return;
+  }
+  if (moteurs) { construireFormulaireCode(style); }
+}
+
+async function chargerMoteurs() {
+  var r = await api("/api/engines");
+  if (gererErreurReseau(r, "chargement des styles en code")) { return; }
+  if (r.statut !== 200 || !r.corps) {
+    afficherBandeau(messageErreur(r, "Le chargement des styles en code a échoué"), "erreur");
+    return;
+  }
+  moteurs = r.corps;
+  if (styleActuel !== "video") { construireFormulaireCode(styleActuel); }
+}
+
+function obtenirConfigurationCode(cle) {
+  if (!configurationsCode[cle]) {
+    var config = {};
+    Object.keys(moteurs[cle].options).forEach(function (nom) {
+      config[nom] = String(moteurs[cle].options[nom][0]);
+    });
+    configurationsCode[cle] = config;
+  }
+  return configurationsCode[cle];
+}
+
+function libelleValeurCode(valeur) {
+  if (String(valeur) === "true") { return "oui"; }
+  if (String(valeur) === "false") { return "non"; }
+  return String(valeur);
+}
+
+function reinitialiserExportCode() {
+  var lien = $("lien-telechargement-code");
+  lien.classList.add("cache");
+  lien.removeAttribute("href");
+}
+
+function construireFormulaireCode(cle) {
+  var spec = moteurs && moteurs[cle];
+  if (!spec) {
+    afficherBandeau("Ce style de mascotte est indisponible.", "erreur");
+    return;
+  }
+  moteurActuel = cle;
+  var config = obtenirConfigurationCode(cle);
+  var reglages = $("reglages-code");
+  reglages.innerHTML = "";
+
+  Object.keys(spec.options).forEach(function (nom) {
+    var groupe = document.createElement("div");
+    groupe.className = "champ-code";
+    var id = "code-" + cle + "-" + nom;
+    var label = document.createElement("label");
+    label.className = "etiquette";
+    label.htmlFor = id;
+    label.textContent = LIBELLES_REGLAGES[nom] || nom;
+    var select = document.createElement("select");
+    select.id = id;
+    var couleurPerso = null;
+
+    spec.options[nom].forEach(function (valeur) {
+      var option = document.createElement("option");
+      option.value = String(valeur);
+      option.textContent = libelleValeurCode(valeur);
+      select.appendChild(option);
+    });
+    if (spec.free_color === nom && /^#[0-9a-f]{6}$/i.test(config[nom])) {
+      var optionInitiale = document.createElement("option");
+      optionInitiale.value = config[nom];
+      optionInitiale.textContent = config[nom];
+      optionInitiale.dataset.couleurPerso = "true";
+      select.appendChild(optionInitiale);
+    }
+    select.value = config[nom];
+    if (select.value !== config[nom]) { select.selectedIndex = -1; }
+    select.addEventListener("change", function () {
+      config[nom] = select.value;
+      if (couleurPerso && /^#[0-9a-f]{6}$/i.test(select.value)) {
+        couleurPerso.value = select.value;
+      }
+      reinitialiserExportCode();
+      programmerApercuCode();
+    });
+
+    groupe.appendChild(label);
+    groupe.appendChild(select);
+    reglages.appendChild(groupe);
+
+    if (spec.free_color === nom) {
+      var groupeCouleur = document.createElement("div");
+      groupeCouleur.className = "champ-code";
+      var idCouleur = id + "-perso";
+      var labelCouleur = document.createElement("label");
+      labelCouleur.className = "etiquette";
+      labelCouleur.htmlFor = idCouleur;
+      labelCouleur.textContent = "Couleur perso";
+      couleurPerso = document.createElement("input");
+      couleurPerso.type = "color";
+      couleurPerso.id = idCouleur;
+      couleurPerso.value = /^#[0-9a-f]{6}$/i.test(config[nom]) ? config[nom] : "#7c3aed";
+      couleurPerso.addEventListener("input", function () {
+        config[nom] = couleurPerso.value;
+        var optionPerso = select.querySelector("option[data-couleur-perso]");
+        if (!optionPerso) {
+          optionPerso = document.createElement("option");
+          optionPerso.dataset.couleurPerso = "true";
+          select.appendChild(optionPerso);
+        }
+        optionPerso.value = config[nom];
+        optionPerso.textContent = config[nom];
+        select.value = config[nom];
+        reinitialiserExportCode();
+        programmerApercuCode();
+      });
+      groupeCouleur.appendChild(labelCouleur);
+      groupeCouleur.appendChild(couleurPerso);
+      reglages.appendChild(groupeCouleur);
+    }
+  });
+
+  construireControlesEtatsCode(spec.states);
+  construireCreditCode(spec);
+  reinitialiserExportCode();
+  if (!$("btn-export-code").classList.contains("occupe")) {
+    $("btn-export-code").disabled = false;
+  }
+  programmerApercuCode();
+}
+
+function construireControlesEtatsCode(etats) {
+  var controles = $("controles-etats-code");
+  controles.innerHTML = "";
+  var initial = etats.indexOf("idle") !== -1 ? "idle" : etats[0];
+  etats.forEach(function (etat) {
+    var bouton = document.createElement("button");
+    bouton.type = "button";
+    bouton.textContent = etat;
+    bouton.dataset.etat = etat;
+    bouton.setAttribute("aria-pressed", String(etat === initial));
+    bouton.addEventListener("click", function () {
+      if (avatarCodeActuel) { avatarCodeActuel.play(etat); }
+    });
+    controles.appendChild(bouton);
+  });
+}
+
+function selectionnerEtatCode(etat) {
+  var boutons = $("controles-etats-code").querySelectorAll("button");
+  for (var i = 0; i < boutons.length; i++) {
+    boutons[i].setAttribute("aria-pressed", String(boutons[i].dataset.etat === etat));
+  }
+}
+
+function construireCreditCode(spec) {
+  var credit = $("credit-code");
+  credit.textContent = "Moteur : " + spec.credit + " ";
+  var source = document.createElement("a");
+  source.href = spec.source;
+  source.target = "_blank";
+  source.rel = "noopener";
+  source.textContent = "Source";
+  credit.appendChild(source);
+}
+
+function programmerApercuCode() {
+  clearTimeout(delaiApercuCode);
+  delaiApercuCode = setTimeout(afficherApercuCode, 250);
+}
+
+function afficherApercuCode() {
+  if (styleActuel === "video" || !moteurActuel || !moteurs) { return; }
+  var config = obtenirConfigurationCode(moteurActuel);
+  var params = new URLSearchParams();
+  Object.keys(config).forEach(function (nom) { params.append(nom, config[nom]); });
+  var manifest = "/api/engines/" + encodeURIComponent(moteurActuel) +
+    "/manifest.json?" + params.toString();
+  var scene = $("scene-code");
+  scene.innerHTML = "";
+  var avatar = document.createElement("mascot-avatar");
+  avatar.setAttribute("manifest", manifest);
+  avatar.setAttribute("sleep-after", "0");
+  avatar.setAttribute("label", "Aperçu de la mascotte en code");
+  avatar.addEventListener("statechange", function (ev) {
+    selectionnerEtatCode(ev.detail.to);
+  });
+  avatarCodeActuel = avatar;
+  scene.appendChild(avatar);
+}
+
+async function exporterDossierCode() {
+  if (!moteurActuel || !moteurs) { return; }
+  var moteurExporte = moteurActuel;
+  var configExportee = obtenirConfigurationCode(moteurExporte);
+  var bouton = $("btn-export-code");
+  occuper(bouton, "Préparation du zip…");
+  var r = await api("/api/engines/" + encodeURIComponent(moteurExporte) + "/export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ config: configExportee })
+  });
+  liberer(bouton);
+  if (gererErreurReseau(r, "export de la mascotte en code")) { return; }
+  if (r.statut !== 200 || !r.corps || !r.corps.download_url) {
+    afficherBandeau(messageErreur(r, "L'export a échoué"), "erreur");
+    return;
+  }
+  if (moteurActuel !== moteurExporte) { return; }
+  cacherBandeau();
+  var lien = $("lien-telechargement-code");
+  lien.href = r.corps.download_url;
+  lien.classList.remove("cache");
 }
 
 /* ---------- Verrouillage des étapes ---------- */
@@ -629,8 +883,8 @@ async function ajouterSuivi() {
   suivreJob(jobId);
 }
 
-function changerFond(classe) {
-  var scene = $("scene");
+function changerFond(classe, idScene) {
+  var scene = $(idScene || "scene");
   scene.classList.remove("fond-damier", "fond-clair", "fond-sombre");
   scene.classList.add(classe);
 }
@@ -658,6 +912,7 @@ async function exporterDossier() {
 function reprendreJobDepuisUrl() {
   var trouve = /job=([a-f0-9]+)/.exec(location.hash);
   if (!trouve) { return; }
+  basculerStyle("video");
   deverrouiller("etape-2");
   $("btn-generer").disabled = true;
   suivreJob(trouve[1]);
@@ -666,6 +921,9 @@ function reprendreJobDepuisUrl() {
 /* ---------- Initialisation ---------- */
 
 function init() {
+  $("style-video").addEventListener("click", function () { basculerStyle("video"); });
+  $("style-blob").addEventListener("click", function () { basculerStyle("blob"); });
+  $("style-3d").addEventListener("click", function () { basculerStyle("3d"); });
   $("onglet-upload").addEventListener("click", function () { basculerOnglet(false); });
   $("onglet-prompt").addEventListener("click", function () { basculerOnglet(true); });
 
@@ -698,15 +956,21 @@ function init() {
   $("btn-generer").addEventListener("click", lancerGeneration);
   $("btn-relancer").addEventListener("click", relancerEchecs);
   $("btn-export").addEventListener("click", exporterDossier);
+  $("btn-export-code").addEventListener("click", exporterDossierCode);
   $("btn-suivi").addEventListener("click", ajouterSuivi);
   $("bandeau-fermer").addEventListener("click", cacherBandeau);
   $("controles-fond").addEventListener("click", function (ev) {
     var fond = ev.target.dataset && ev.target.dataset.fond;
     if (fond) { changerFond(fond); }
   });
+  $("controles-fond-code").addEventListener("click", function (ev) {
+    var fond = ev.target.dataset && ev.target.dataset.fond;
+    if (fond) { changerFond(fond, "scene-code"); }
+  });
 
   verifierSante();
   rafraichirCout();
+  chargerMoteurs();
   chargerPresets().then(reprendreJobDepuisUrl);
 }
 
