@@ -133,12 +133,69 @@ button {
   padding: 9px 16px;
   cursor: pointer;
   font-size: 14px;
+  transition: transform 0.12s ease-out, background 0.15s, border-color 0.15s;
 }
 
 button:hover:not(:disabled) { border-color: var(--accent); }
+button:active:not(:disabled) { transform: scale(0.97); }
+button:focus-visible, select:focus-visible, input:focus-visible, .zone-fichier:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 button.primaire { background: var(--accent-fond); border-color: var(--accent); }
 button.primaire:hover:not(:disabled) { background: #372c52; }
+button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+
+/* Bouton occupé : spinner devant le texte (le bouton est aussi désactivé) */
+button.occupe { opacity: 0.8; cursor: progress; }
+button.occupe::before {
+  content: "";
+  display: inline-block;
+  width: 12px; height: 12px;
+  margin-right: 8px;
+  vertical-align: -1px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: rotation 0.7s linear infinite;
+}
+@keyframes rotation { to { transform: rotate(360deg); } }
+
+/* ----- Éditeur d'états (étape 2) ----- */
+
+.etiquette-inline { font-size: 13px; color: var(--muted); }
+
+select, .editeur-etats input[type="text"] {
+  background: var(--panneau-clair);
+  color: var(--texte);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.editeur-etats { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 8px; }
+.editeur-etats li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.editeur-etats .champ-nom { width: 140px; font-family: ui-monospace, monospace; }
+.editeur-etats .champ-mouvement { flex: 1 1 260px; min-width: 0; }
+.editeur-etats input.invalide { border-color: var(--rouge); }
+.case-boucle { font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; }
+.btn-retirer { padding: 6px 12px; font-size: 16px; line-height: 1; }
+#estimation.alerte { color: var(--ambre); }
+.erreur-etat { flex-basis: 100%; color: var(--rouge); font-size: 12px; }
+.erreur-etat:empty { display: none; }
+
+/* ----- Aperçu dans le widget (étape 3) ----- */
+
+.apercu-widget { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.scene { width: 320px; height: 320px; border-radius: 12px; border: 1px solid var(--bord); display: grid; place-items: center; }
+.scene mascot-avatar { width: 300px; height: 300px; }
+.fond-damier { background: conic-gradient(#d4d4d8 25%, #fafafa 0 50%, #d4d4d8 0 75%, #fafafa 0) 0 0 / 24px 24px; }
+.fond-clair { background: #ffffff; }
+.fond-sombre { background: #0b0b0f; }
+.controles-etats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 
 .etiquette { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
 
@@ -193,10 +250,15 @@ textarea:focus { outline: none; border-color: var(--accent); }
 .zone-fichier:hover { border-color: var(--accent); }
 .zone-texte { color: var(--muted); font-size: 14px; }
 .zone-texte.fichier-choisi { color: var(--texte); }
+.apercu-fichier {
+  display: block; margin: 0 auto 12px;
+  width: 200px; max-width: 100%; height: 200px; object-fit: contain;
+  border-radius: 8px; border: 1px solid var(--bord);
+}
 
 .apercu-personnage { margin-top: 14px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .apercu-personnage img {
-  width: 160px; height: 160px; object-fit: cover;
+  width: 160px; height: 160px; object-fit: contain;
   border-radius: 8px; border: 1px solid var(--bord); background: #101016;
 }
 
@@ -206,6 +268,7 @@ textarea:focus { outline: none; border-color: var(--accent); }
 
 .liste-etats li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   background: #101016;
@@ -216,6 +279,8 @@ textarea:focus { outline: none; border-color: var(--accent); }
 }
 
 .liste-etats .nom-etat { flex: 1; }
+.btn-regenerer { margin-left: 12px; padding: 4px 10px; font-size: 13px; }
+.liste-etats.job-actif .btn-regenerer { display: none; }
 
 .indicateur {
   display: inline-flex;
@@ -246,32 +311,6 @@ li[data-statut="failed"] .indicateur { color: var(--rouge); }
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.4; transform: scale(0.8); }
 }
-
-/* ----- Grille vidéos (étape 3) ----- */
-
-.grille-videos {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 14px;
-}
-
-.carte-video {
-  margin: 0;
-  background: #101016;
-  border: 1px solid var(--bord);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.carte-video figcaption {
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--muted);
-  border-bottom: 1px solid var(--bord);
-}
-
-.carte-video video { width: 100%; display: block; aspect-ratio: 1; background: #000; }
-.carte-video .muted { padding: 12px; margin: 0; }
 
 /* ----- Export (étape 4) ----- */
 

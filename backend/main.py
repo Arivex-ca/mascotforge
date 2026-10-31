@@ -1,9 +1,11 @@
-"""MascotForge V2 : API FastAPI (personnages, generation, export, couts)."""
+"""MascotForge : API FastAPI (personnages, generation, export, couts)."""
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -11,9 +13,11 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from backend import alpha
 from backend import cost as cost_module
 from backend import exporter, fal as fal_module
 from backend import pipeline, settings
+from backend import states as states_module
 from backend.models import (
     CharacterFromPromptRequest,
     CharacterResponse,
@@ -23,10 +27,20 @@ from backend.models import (
     GenerateResponse,
     HealthResponse,
     JobResponse,
+    PresetsResponse,
+    RegenerateRequest,
     StateInfo,
 )
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+log = logging.getLogger("mascotforge.api")
+
 ALLOWED_UPLOAD_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+# Les taches de fond doivent rester referencees, sinon le ramasse-miettes
+# peut les supprimer en cours de route (doc asyncio.create_task).
+_background_tasks: set[asyncio.Task] = set()
 
 
 @asynccontextmanager
@@ -38,10 +52,15 @@ async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
         settings.exports_dir(),
     ):
         directory.mkdir(parents=True, exist_ok=True)
+    interrupted = pipeline.recover_interrupted_jobs()
+    if interrupted:
+        log.warning("%s job(s) interrompu(s) par le redemarrage, passes en echec", interrupted)
+    if not alpha.available():
+        log.warning("ffmpeg absent : les clips resteront opaques (pas de detourage)")
     yield
 
 
-app = FastAPI(title="MascotForge V2", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="MascotForge", version="0.3.0", lifespan=lifespan)
 
 
 def _no_fal_key_error() -> HTTPException:
@@ -54,14 +73,24 @@ def _no_fal_key_error() -> HTTPException:
     )
 
 
+def _start(coro) -> None:  # type: ignore[no-untyped-def]
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+
 def _job_to_response(job: dict) -> JobResponse:
     return JobResponse(
         job_id=job["job_id"],
         character_id=job["character_id"],
         status=job["status"],
+        default_state=job["default_state"],
+        alpha=job.get("alpha"),
         states={
             state: StateInfo(
                 status=info["status"],
+                prompt=info["prompt"],
+                loop=info["loop"],
                 video_url=info.get("video_url"),
                 model=info.get("model"),
                 error=info.get("error"),
@@ -69,15 +98,37 @@ def _job_to_response(job: dict) -> JobResponse:
             for state, info in job["states"].items()
         },
         cost_usd_estimate=job["cost_usd_estimate"],
+        actual_cost_usd=job.get("actual_cost_usd", 0.0),
     )
 
 
+def _get_job_or_404(job_id: str) -> dict:
+    try:
+        return pipeline.get_job(job_id)
+    except pipeline.JobNotFoundError:
+        raise HTTPException(status_code=404, detail="Job introuvable.")
+
+
 # ---------------------------------------------------------------------------
-# Sante
+# Sante et presets
 # ---------------------------------------------------------------------------
 @app.get("/api/health", response_model=HealthResponse)
 def api_health() -> HealthResponse:
-    return HealthResponse(ok=True, fal_key_configured=settings.fal_key_configured())
+    return HealthResponse(
+        ok=True,
+        fal_key_configured=settings.fal_key_configured(),
+        ffmpeg_available=alpha.available(),
+    )
+
+
+@app.get("/api/presets", response_model=PresetsResponse)
+def api_presets() -> PresetsResponse:
+    return PresetsResponse(
+        default=states_module.DEFAULT_PRESET,
+        presets=states_module.PRESETS,
+        cost_per_state_usd=pipeline.clip_cost_usd(settings.i2v_model()),
+        max_states=states_module.MAX_STATES,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -87,6 +138,9 @@ def api_health() -> HealthResponse:
 async def api_character_from_prompt(body: CharacterFromPromptRequest) -> CharacterResponse:
     if not settings.fal_key_configured():
         raise _no_fal_key_error()
+    price = settings.COST_TTI_PER_IMAGE_USD
+    if not cost_module.reserve(price):
+        raise HTTPException(status_code=429, detail=pipeline.cap_message(price))
     try:
         image_url = await fal_module.generate_character_image(
             fal_module.CHARACTER_PROMPT_PREFIX + body.prompt.strip()
@@ -94,9 +148,11 @@ async def api_character_from_prompt(body: CharacterFromPromptRequest) -> Charact
     except fal_module.FalNotConfiguredError:
         raise _no_fal_key_error()
     except fal_module.FalApiError as exc:
-        raise HTTPException(
-            status_code=502, detail=f"La generation d'image a echoue : {exc}"
-        )
+        log.warning("generation d'image echouee : %r", exc)
+        raise HTTPException(status_code=502, detail="La generation d'image a echoue sur fal.ai.")
+    finally:
+        cost_module.release(price)
+    cost_module.add_spend(price)
     character_id = pipeline.save_character(image_url)
     # Copie locale de l'image (optionnelle : on continue meme si ca echoue)
     try:
@@ -107,7 +163,7 @@ async def api_character_from_prompt(body: CharacterFromPromptRequest) -> Charact
         local.parent.mkdir(parents=True, exist_ok=True)
         local.write_bytes(resp.content)
     except Exception:
-        pass
+        log.info("copie locale de l'image %s impossible", character_id)
     return CharacterResponse(character_id=character_id, image_url=image_url)
 
 
@@ -121,22 +177,32 @@ async def api_character_from_upload(file: UploadFile = File(...)) -> CharacterRe
             status_code=400,
             detail="Format de fichier refuse : envoyez un PNG, JPG ou WEBP.",
         )
-    content = await file.read()
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
     if not content:
         raise HTTPException(status_code=400, detail="Le fichier envoye est vide.")
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Image trop lourde : 10 Mo maximum.")
     character_id = uuid.uuid4().hex[:12]
     dest = settings.data_dir() / "characters" / f"{character_id}{ext}"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(content)
+    to_send = dest
+    if alpha.available():
+        # Un PNG detoure passe sur fond vert : le detourage final le retirera.
+        to_send = dest.with_name(f"{character_id}.green.png")
+        try:
+            await asyncio.to_thread(alpha.put_on_green, dest, to_send)
+        except alpha.AlphaError:
+            log.warning("image %s illisible par ffmpeg", character_id, exc_info=True)
+            raise HTTPException(status_code=400, detail="Image illisible : envoyez un PNG, JPG ou WEBP valide.")
     try:
-        image_url = await fal_module.upload_character_image(dest)
+        image_url = await fal_module.upload_character_image(to_send)
     except fal_module.FalNotConfiguredError:
         raise _no_fal_key_error()
     except fal_module.FalApiError as exc:
-        raise HTTPException(
-            status_code=502, detail=f"L'envoi de l'image vers fal.ai a echoue : {exc}"
-        )
-    pipeline.save_character(image_url, local_path=str(dest), character_id=character_id)
+        log.warning("upload fal echoue : %r", exc)
+        raise HTTPException(status_code=502, detail="L'envoi de l'image vers fal.ai a echoue.")
+    pipeline.save_character(image_url, local_path=str(to_send), character_id=character_id)
     return CharacterResponse(character_id=character_id, image_url=image_url)
 
 
@@ -148,28 +214,79 @@ async def api_generate(body: GenerateRequest) -> GenerateResponse:
     if not settings.fal_key_configured():
         raise _no_fal_key_error()
     try:
-        job_id = pipeline.create_job(body.character_id)
+        if body.states is not None:
+            requested = [s.model_dump() for s in body.states]
+        else:
+            requested = states_module.preset_states(body.usage or states_module.DEFAULT_PRESET)
+        job_id, reserved = pipeline.create_job(body.character_id, requested)
     except pipeline.CharacterNotFoundError:
         raise HTTPException(
             status_code=404,
             detail="Personnage introuvable : verifiez le character_id.",
         )
+    except states_module.InvalidStatesError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     except pipeline.CapExceededError as exc:
         raise HTTPException(status_code=429, detail=str(exc))
     if settings.sync_jobs():
-        await pipeline.run_job(job_id)
+        await pipeline.run_job(job_id, reserved_usd=reserved)
     else:
-        asyncio.create_task(pipeline.run_job(job_id))
+        _start(pipeline.run_job(job_id, reserved_usd=reserved))
     return GenerateResponse(job_id=job_id)
 
 
 @app.get("/api/jobs/{job_id}", response_model=JobResponse)
 def api_get_job(job_id: str) -> JobResponse:
+    return _job_to_response(_get_job_or_404(job_id))
+
+
+@app.post("/api/jobs/{job_id}/retry", response_model=GenerateResponse)
+async def api_retry_job(job_id: str) -> GenerateResponse:
+    _get_job_or_404(job_id)
+    if not settings.fal_key_configured():
+        raise _no_fal_key_error()
     try:
-        job = pipeline.get_job(job_id)
-    except pipeline.JobNotFoundError:
-        raise HTTPException(status_code=404, detail="Job introuvable.")
-    return _job_to_response(job)
+        names, reserved = pipeline.prepare_retry(job_id)
+    except pipeline.NothingToRetryError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except pipeline.CapExceededError as exc:
+        raise HTTPException(status_code=429, detail=str(exc))
+    if settings.sync_jobs():
+        await pipeline.run_job(job_id, only=names, reserved_usd=reserved)
+    else:
+        _start(pipeline.run_job(job_id, only=names, reserved_usd=reserved))
+    return GenerateResponse(job_id=job_id)
+
+
+@app.post("/api/jobs/{job_id}/states/{state}/regenerate", response_model=GenerateResponse)
+async def api_regenerate_state(job_id: str, state: str, body: RegenerateRequest) -> GenerateResponse:
+    """Nouveau clip pour un seul etat, avec sa description actuelle ou une nouvelle."""
+    job = _get_job_or_404(job_id)
+    if state not in job["states"]:
+        raise HTTPException(status_code=404, detail=f"L'etat {state!r} n'existe pas dans ce job.")
+    if not settings.fal_key_configured():
+        raise _no_fal_key_error()
+    try:
+        reserved = pipeline.prepare_regenerate(job_id, state, body.prompt)
+    except pipeline.NothingToRetryError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except states_module.InvalidStatesError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except pipeline.CapExceededError as exc:
+        raise HTTPException(status_code=429, detail=str(exc))
+    if settings.sync_jobs():
+        await pipeline.run_job(job_id, only=[state], reserved_usd=reserved)
+    else:
+        _start(pipeline.run_job(job_id, only=[state], reserved_usd=reserved))
+    return GenerateResponse(job_id=job_id)
+
+
+@app.get("/api/jobs/{job_id}/manifest.json")
+def api_job_manifest(job_id: str):  # type: ignore[no-untyped-def]
+    """Manifest du widget pour l'apercu du studio (clips servis par /videos)."""
+    job = _get_job_or_404(job_id)
+    generated_at = datetime.now(timezone.utc).isoformat()
+    return exporter.build_manifest(job, lambda s: f"/videos/{job_id}/{s}.mp4", generated_at)
 
 
 # ---------------------------------------------------------------------------
@@ -177,13 +294,10 @@ def api_get_job(job_id: str) -> JobResponse:
 # ---------------------------------------------------------------------------
 @app.post("/api/export/{job_id}", response_model=ExportResponse)
 def api_export(job_id: str) -> ExportResponse:
-    try:
-        job = pipeline.get_job(job_id)
-    except pipeline.JobNotFoundError:
-        raise HTTPException(status_code=404, detail="Job introuvable.")
+    job = _get_job_or_404(job_id)
     if job["status"] != "done":
         raise HTTPException(
-            status_code=404,
+            status_code=409,
             detail=(
                 "Export impossible : le job n'est pas termine "
                 f"(statut actuel : {job['status']}). Attendez la fin de la generation."

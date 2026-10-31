@@ -32,34 +32,32 @@ class FalApiError(RuntimeError):
 
 
 # ---------------------------------------------------------------------------
-# Prompts video par etat (anglais, style verrouille)
+# Prompts (anglais). Le fond vert uni sert au detourage (backend/alpha.py).
 # ---------------------------------------------------------------------------
-_STYLE_PREFIX = "2D cartoon style, identical character to the input image, "
-_STYLE_SUFFIX = ", no camera movement, flat 2D cartoon look, not photorealistic"
-
-STATE_VIDEO_PROMPTS: dict[str, str] = {
-    "idle": "breathing in and out gently, subtle idle sway, seamless loop",
-    "talking": "mouth opening and closing as if talking cheerfully, slight head bobbing, seamless loop",
-    "thinking": "tapping chin thoughtfully, glancing side to side, pondering expression, seamless loop",
-    "clicked": "happy little hop, waving hello, cheerful bounce, seamless loop",
-    "error": "shaking head no, confused shrug, wobbling in place, seamless loop",
-    "sleeping": "eyes closing, slow deep breathing, head nodding gently, sleepy motion, seamless loop",
-}
-
-STATES: list[str] = list(STATE_VIDEO_PROMPTS.keys())
-
-
-def build_state_prompt(state: str) -> str:
-    """Construit le prompt video verrouille pour un etat."""
-    if state not in STATE_VIDEO_PROMPTS:
-        raise ValueError(f"Etat inconnu : {state!r} (attendus : {', '.join(STATES)})")
-    return _STYLE_PREFIX + STATE_VIDEO_PROMPTS[state] + _STYLE_SUFFIX
-
-
 CHARACTER_PROMPT_PREFIX = (
-    "2D cartoon mascot character, flat vector style, centered, "
-    "plain solid background, full body, "
+    "Mascot character, full body, centered, facing the viewer, "
+    "on a solid pure bright green (#00FF00) chroma key background, "
+    "no shadow, no ground, no text, no other objects. Character: "
 )
+
+_MOTION_PREFIX = (
+    "The exact same character as in the image, same art style, colors and "
+    "proportions. "
+)
+_MOTION_SUFFIX = (
+    ". Static camera. Any facial expression described is clearly visible in the "
+    "middle of the clip. The character starts and ends in the exact pose and "
+    "expression of the image. The plain green background stays unchanged."
+)
+VIDEO_NEGATIVE_PROMPT = (
+    "camera movement, zoom, background change, shadow, new objects, text, "
+    "blur, distort, low quality"
+)
+
+
+def build_motion_prompt(motion: str) -> str:
+    """Encadre le mouvement d'un etat pour garder personnage, style et fond."""
+    return _MOTION_PREFIX + motion.strip().rstrip(".") + _MOTION_SUFFIX
 
 
 # ---------------------------------------------------------------------------
@@ -224,15 +222,22 @@ async def generate_character_image(prompt: str) -> str:
 
 
 async def generate_state_video(
-    image_url: str, state: str, model: str | None = None
+    image_url: str, motion: str, model: str | None = None
 ) -> tuple[str, str]:
-    """Genere le clip video d'un etat. Retourne (url_video, modele_utilise)."""
+    """Genere le clip video d'un etat. Retourne (url_video, modele_utilise).
+
+    Debut et fin sur la meme image : les clips bouclent sans saut et le
+    widget passe d'un etat a l'autre sur cette pose commune.
+    """
     _require_key()
     chosen = model or settings.i2v_model()
     payload = {
-        "image_url": image_url,
-        "prompt": build_state_prompt(state),
+        "start_image_url": image_url,
+        "end_image_url": image_url,
+        "prompt": build_motion_prompt(motion),
+        "negative_prompt": VIDEO_NEGATIVE_PROMPT,
         "duration": str(settings.VIDEO_DURATION_S),  # Kling : duree discrete "3".."15"
+        "generate_audio": False,  # le widget est muet ; l'audio coute 50 % de plus
     }
     result = await _submit_and_wait(chosen, payload)
     try:

@@ -1,88 +1,121 @@
-# MascotForge V2 (backend)
+# MascotForge (text-to-mascot)
 
-Brique produit Arivex : generation de mascottes animees par IA, sortie **video pure**
-(pas de Lottie, pas de segmentation, pas de rig).
+Brique produit Arivex : tu décris une mascotte (ou tu envoies son image), tu
+choisis ses états d'animation, et l'outil sort une mascotte animée à fond
+transparent, prête à coller dans un site ou devant un agent IA.
 
-Pipeline : (1) image uploadee OU prompt texte -> (2) text-to-image genere le
-personnage (Flux) -> (3) image-to-video genere 6 clips d'environ 3 s
-(`idle`, `talking`, `thinking`, `clicked`, `error`, `sleeping`, Kling 3.0)
--> (4) widget video `<mascot-avatar>` -> (5) export d'un dossier importable + zip.
+Pipeline :
 
-## Prerequis
+1. Personnage : image envoyée (PNG détouré conseillé) ou prompt texte. Flux
+   génère le personnage sur fond vert uni ; une image envoyée est posée sur ce
+   même vert.
+2. États à la demande : presets par usage (agent IA, site web, complet), puis
+   ajout, retrait ou description libre de chaque état, 12 au maximum. Chaque
+   état est un clip de 3 s, en boucle ou joué une fois.
+3. Kling 3.0 (image-to-video) génère un clip par état. Le clip commence et
+   finit sur l'image de départ (`end_image_url`) : la boucle ne saute pas et
+   le widget passe d'un état à l'autre sur cette pose commune. Audio coupé.
+4. Détourage (ffmpeg) : le vert disparaît, chaque clip devient une vidéo
+   « alpha empilé » de 480 px (couleur en haut, masque en bas).
+5. Widget `<mascot-avatar>` : recompose la transparence en WebGL, dans tous les
+   navigateurs, Safari et iOS compris.
+6. Export : dossier importable + zip.
 
-- Python 3.12
-- Une cle **fal.ai** dans `FAL_KEY` (voir `.env.example`). Sans elle, les routes de
-  generation repondent `503` avec un message clair ; `GET /api/health` l'indique.
+## Prérequis
+
+- Python 3.10 ou plus
+- ffmpeg et ffprobe dans le PATH (ou `MASCOTFORGE_FFMPEG`). Sans eux, la
+  génération marche mais les mascottes gardent leur fond vert ; `GET /api/health`
+  l'indique.
+- Une clé **fal.ai** dans `FAL_KEY` (voir `.env.example`). Sans elle, les routes
+  de génération répondent `503` avec un message clair.
 
 ## Installation
 
 ```bash
-cd ~/workspace/mascot-forge-v2
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-cp .env.example .env   # puis renseignez FAL_KEY
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt   # Windows : .venv\Scripts\pip
+cp .env.example .env                        # puis renseigne FAL_KEY
 ```
 
 ## Lancement
 
 ```bash
-.venv/bin/python -m uvicorn backend.main:app --port 8766
+.venv/bin/python -m uvicorn backend.main:app --port 8766 --env-file .env
 ```
 
-- Studio : `http://localhost:8766/` (sert `studio/index.html` si present)
-- Widget : `http://localhost:8766/widget/` (sert `widget/` si present)
+`--env-file` charge `FAL_KEY` et les réglages depuis `.env` (le backend ne lit
+que les variables d'environnement).
+
+- Studio : `http://localhost:8766/`
+- Widget et démo : `http://localhost:8766/widget/`
 
 ## API
 
-| Methode | Route | Description |
+| Méthode | Route | Description |
 |---|---|---|
-| GET | `/api/health` | `{"ok": true, "fal_key_configured": bool}` |
-| POST | `/api/character/from-prompt` | `{"prompt"}` -> `{"character_id", "image_url"}` (503 sans FAL_KEY) |
-| POST | `/api/character/from-upload` | multipart `file` -> `{"character_id", "image_url"}` (503 sans FAL_KEY) |
-| POST | `/api/generate` | `{"character_id"}` -> `{"job_id"}` (429 si plafond, 503 sans FAL_KEY) |
-| GET | `/api/jobs/{job_id}` | statut + etats (`video_url`, `model`, `error`) + `cost_usd_estimate` |
-| POST | `/api/export/{job_id}` | `{"download_url"}` (404 si job pas termine) |
-| GET | `/api/exports/{filename}` | telechargement du zip |
-| GET | `/videos/{job_id}/{etat}.mp4` | clip genere (fichier local) |
-| GET | `/api/cost` | `{"month", "spent_usd", "cap_usd", "mascots_completed"}` |
+| GET | `/api/health` | `{"ok", "fal_key_configured", "ffmpeg_available"}` |
+| GET | `/api/presets` | presets d'états, coût par état, nombre max d'états |
+| POST | `/api/character/from-prompt` | `{"prompt"}` -> `{"character_id", "image_url"}` (429 si plafond) |
+| POST | `/api/character/from-upload` | multipart `file`, 10 Mo max -> `{"character_id", "image_url"}` |
+| POST | `/api/generate` | `{"character_id", "states": [{"name", "prompt", "loop"}]}` ou `{"character_id", "usage"}` -> `{"job_id"}` |
+| GET | `/api/jobs/{job_id}` | statut, états (`video_url`, `model`, `error`, `loop`), coût estimé et réel |
+| POST | `/api/jobs/{job_id}/retry` | relance les seuls états en échec (409 s'il n'y en a pas) |
+| GET | `/api/jobs/{job_id}/manifest.json` | manifest du widget pour l'aperçu |
+| POST | `/api/export/{job_id}` | `{"download_url"}` (409 si le job n'est pas terminé) |
+| GET | `/api/exports/{filename}` | téléchargement du zip |
+| GET | `/videos/{job_id}/{etat}.mp4` | clip détouré |
+| GET | `/api/cost` | `{"month", "spent_usd", "reserved_usd", "cap_usd", "mascots_completed"}` |
 
-Tous les messages d'erreur API sont en francais (champ `detail`), sans em dash.
+Les messages d'erreur sont en français (champ `detail`), sans em dash. Les
+erreurs de fal.ai ou de ffmpeg restent dans les logs du serveur ; l'API ne
+renvoie qu'un message propre.
 
-## Modeles fal.ai
+## Modèles fal.ai
 
-Surchargeables par variables d'environnement (valeurs par defaut verifiees le 2026-10-19) :
+Surchargeables par variables d'environnement :
 
 - Text-to-image : `fal-ai/flux/dev` (`MASCOTFORGE_TTI_MODEL`)
-- Image-to-video : `fal-ai/kling-video/v3/standard/image-to-video` (`MASCOTFORGE_I2V_MODEL`),
-  720p, ~0,084 $/s, duree discrete `"3"` a `"15"`
+- Image-to-video : `fal-ai/kling-video/v3/standard/image-to-video`
+  (`MASCOTFORGE_I2V_MODEL`). Schéma lu le 2026-10-30 : `start_image_url`
+  (requis), `end_image_url`, `generate_audio`, durée `"3"` à `"15"`.
 - Fallback : `fal-ai/kling-video/v3/pro/image-to-video` (`MASCOTFORGE_FALLBACK_MODEL`)
 
-**Note Runway** : aucun endpoint fal.ai verifie n'existe pour Runway Gen-4.5
-(Runway expose sa propre API). Le fallback est donc configurable : on pourra y
-brancher Runway plus tard via sa propre cle, en adaptant `backend/fal.py`.
+## Coûts
 
-## Couts
-
-- Compteur mensuel persistant dans `data/cost.json`, plafond via
-  `MASCOTFORGE_MONTHLY_CAP_USD` (defaut 50 $).
-- Cout estime par clip : duree x tarif du modele. Tarifs dans `backend/settings.py`,
-  **a verifier sur la page pricing fal.ai** avant la mise en production.
-- Ordre de grandeur : 6 clips x 3 s x 0,084 $/s + image ~= **1,50 $ par mascotte**.
-- Chaque clip journalise le modele qui l'a produit (visible dans
-  `GET /api/jobs/{job_id}` et dans le `manifest.json` de l'export).
+- 0,084 $/s en Kling 3.0 standard sans audio (page tarif fal.ai, 2026-10-30) :
+  environ 0,25 $ par état de 3 s. Une mascotte de 4 états coûte environ 1 $,
+  plus 0,025 $ si l'image vient d'un prompt.
+- Plafond mensuel `MASCOTFORGE_MONTHLY_CAP_USD` (défaut 50 $), compteur dans
+  `data/cost.json`. Chaque job réserve son estimation avant de partir : deux
+  jobs lancés en même temps ne dépassent pas le plafond ensemble.
+- Un clip généré est compté même si son téléchargement échoue ; la relance le
+  retélécharge sans le repayer.
+- Tarif du modèle pro : estimation, à vérifier sur la page tarif fal.ai.
 
 ## Export
 
 `POST /api/export/{job_id}` assemble `exports/mascot-{id}/mascot/` :
 
-- `mascot.js` : copie de `widget/mascot-avatar.js` (erreur claire si absent)
-- `manifest.json` : `{"name", "states", "default_state": "idle", "version": 1, "generated_at", "models"}`
-- `videos/*.mp4` : les 6 clips
-- `README.md` : notice d'integration en francais (snippet
-  `<mascot-avatar manifest="./mascot/manifest.json">`, exemple `play('error')`,
-  zero build step, chemins relatifs)
+- `mascot.js` : le widget
+- `manifest.json` (v2) : `{"default_state", "alpha": "stacked", "states": {"idle": {"src", "loop"}, ...}, "models"}`
+- `videos/*.mp4` : un clip par état
+- `README.md` : notice d'intégration générée à partir des états
 
-puis produit `exports/mascot-{id}.zip`.
+## Widget
+
+```html
+<mascot-avatar manifest="./mascot/manifest.json" label="Mon assistant"></mascot-avatar>
+<script src="./mascot/mascot.js"></script>
+<script>
+  document.querySelector("mascot-avatar").play("thinking");
+</script>
+```
+
+Attributs : `click-state` (défaut `clicked` s'il existe), `sleep-state` (défaut
+`sleeping` s'il existe), `sleep-after` (secondes, 0 pour désactiver), `switch`
+(`loop-end` par défaut, ou `immediate`), `parallax`, `label`. Le widget lit
+aussi les manifests v1 de la V2.
 
 ## Tests
 
@@ -90,20 +123,19 @@ puis produit `exports/mascot-{id}.zip`.
 .venv/bin/python -m pytest tests/ -v
 ```
 
-fal.ai est entierement mocke (monkeypatch de `backend/fal.py`) : aucun appel
-reseau reel, aucun cent depense. Les tests couvrent le cycle complet
-(prompt -> personnage -> generation -> export -> contenu du zip), le plafond
-(429), l'absence de FAL_KEY (503), le fallback de modele et les cas d'erreur.
+fal.ai est mocké : aucun appel réseau, aucun cent dépensé. `tests/test_alpha.py`
+lance le vrai ffmpeg sur un clip synthétique. `tests/test_widget_chromium.py`
+saute si Playwright n'est pas installé ; `widget/smoke.html` se lance dans un
+navigateur.
 
 ## Fichiers
 
-- `backend/main.py` : app FastAPI, routes, fichiers statiques (studio, widget, exports)
-- `backend/fal.py` : client fal.ai (upload, text-to-image, image-to-video via file
-  d'attente ; transport `fal-client` avec repli REST manuel)
-- `backend/pipeline.py` : orchestration async des jobs (6 etats, parallélisme max 3,
-  retry fallback, telechargement local des MP4)
-- `backend/cost.py` : compteur mensuel persistant + plafond
-- `backend/exporter.py` : assemblage du dossier importable + zip
-- `backend/models.py` : schemas pydantic
-- `backend/settings.py` : configuration (env)
-- `data/` : runtime gitigne (jobs, personnages, couts, videos)
+- `backend/main.py` : app FastAPI, routes, fichiers statiques
+- `backend/states.py` : presets d'états et validation des états libres
+- `backend/fal.py` : client fal.ai (upload, text-to-image, image-to-video)
+- `backend/alpha.py` : fond vert et détourage ffmpeg
+- `backend/pipeline.py` : jobs, fallback, téléchargement, relance, reprise au démarrage
+- `backend/cost.py` : compteur mensuel, réservations, plafond
+- `backend/exporter.py` : manifest v2, dossier importable, zip
+- `widget/mascot-avatar.js` : le composant web
+- `studio/` : l'interface de création

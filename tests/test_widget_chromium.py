@@ -24,10 +24,13 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("playwright.sync_api", reason="playwright absent (pip install playwright)")
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WIDGET_DIR = PROJECT_ROOT / "widget"
 SCREENSHOT_DIR = Path(__file__).resolve().parent / "screenshots"
 
+# Shell headless du bac a sable d'origine ; sinon le Chromium de Playwright.
 SHELL = Path.home() / ".cache/ms-playwright/chromium_headless_shell-1248" / \
     "chrome-headless-shell-linux64" / "chrome-headless-shell"
 
@@ -79,9 +82,6 @@ def page_and_server():
     """Serveur HTTP local sur widget/ + page Playwright ouverte."""
     from playwright.sync_api import sync_playwright
 
-    if not SHELL.is_file():
-        pytest.skip(f"headless shell introuvable : {SHELL}")
-
     handler = functools.partial(_Handler, directory=str(WIDGET_DIR))
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     port = server.server_address[1]
@@ -89,7 +89,9 @@ def page_and_server():
     thread.start()
 
     playwright = sync_playwright().start()
-    browser = playwright.chromium.launch(executable_path=str(SHELL))
+    browser = playwright.chromium.launch(
+        executable_path=str(SHELL) if SHELL.is_file() else None
+    )
     context = browser.new_context(viewport={"width": 800, "height": 600})
     page = context.new_page()
     console_errors: list[str] = []
@@ -183,7 +185,9 @@ def test_03_play_talking_then_error(page_and_server):
 
 def test_04_sleep_after_inactivity_then_wake_on_click(page_and_server):
     page, console_errors, page_errors = page_and_server
-    # error (one-shot) doit revenir a idle tout seul avant le test de sommeil
+    # error (one-shot) revient a l'etat qu'il a interrompu : talking
+    _wait_state(page, "talking", timeout=15000)
+    page.evaluate("() => window.__avatar.play('idle')")
     _wait_state(page, "idle", timeout=15000)
     before = len(_events(page))
     # On remet la vraie valeur sleep-after="2" : rearme le minuteur a 2 s.

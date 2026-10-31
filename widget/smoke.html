@@ -3,7 +3,7 @@
 <head><meta charset="utf-8"><title>smoke</title></head>
 <body>
 <div id="result">PENDING</div>
-<mascot-avatar id="a" manifest="manifest.exemple.json" sleep-after="3600" parallax="false"></mascot-avatar>
+<mascot-avatar id="a" manifest="manifest.exemple.json" sleep-after="3600" parallax="false" switch="immediate"></mascot-avatar>
 <script>
 window.__errors = [];
 window.addEventListener("error", (e) => window.__errors.push("error: " + e.message));
@@ -41,6 +41,18 @@ window.addEventListener("unhandledrejection", (e) => window.__errors.push("rejec
     ok("play(error) starts", a.getState() === "error");
     activeVideo().dispatchEvent(new Event("ended"));
     ok("error one-shot returns to previous (thinking)", a.getState() === "thinking");
+
+    // one-shot returns to the loop state it interrupted, whatever came before
+    await a.play("talking");
+    await a.play("error");
+    activeVideo().dispatchEvent(new Event("ended"));
+    ok("error from talking returns to talking", a.getState() === "talking");
+    await a.play("thinking");
+
+    // play() before the element is connected must not throw
+    let detachedOk = true;
+    try { await document.createElement("mascot-avatar").play("idle"); } catch (e) { detachedOk = false; }
+    ok("play() on a detached element does not throw", detachedOk);
 
     // unknown state ignored
     await a.play("bogus-state");

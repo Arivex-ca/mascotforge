@@ -2,6 +2,11 @@
 
 Le compteur se reinitialise automatiquement au changement de mois.
 Les ecritures sont atomiques (fichier temporaire + rename).
+
+Un job reserve son estimation avant de partir (reserve), puis rend la
+reservation et inscrit la depense reelle a la fin (release + add_spend).
+Deux jobs lances en meme temps ne peuvent donc pas depasser le plafond
+ensemble.
 """
 from __future__ import annotations
 
@@ -43,29 +48,55 @@ def _read() -> dict:
             return {
                 "month": month,
                 "spent_usd": float(data.get("spent_usd", 0.0)),
+                "reserved_usd": float(data.get("reserved_usd", 0.0)),
                 "mascots_completed": int(data.get("mascots_completed", 0)),
             }
-    fresh = {"month": month, "spent_usd": 0.0, "mascots_completed": 0}
+    fresh = {"month": month, "spent_usd": 0.0, "reserved_usd": 0.0, "mascots_completed": 0}
     _write(fresh)
     return fresh
 
 
+def _status(data: dict) -> dict:
+    return {
+        "month": data["month"],
+        "spent_usd": round(data["spent_usd"], 4),
+        "reserved_usd": round(data["reserved_usd"], 4),
+        "cap_usd": settings.monthly_cap_usd(),
+        "mascots_completed": data["mascots_completed"],
+    }
+
+
 def get_status() -> dict:
-    """Retourne {month, spent_usd, cap_usd, mascots_completed}."""
+    """Retourne {month, spent_usd, reserved_usd, cap_usd, mascots_completed}."""
+    with _lock:
+        return _status(_read())
+
+
+def reserve(amount_usd: float) -> bool:
+    """Reserve un montant s'il tient dans le plafond (depense + reservations)."""
     with _lock:
         data = _read()
-        return {
-            "month": data["month"],
-            "spent_usd": round(data["spent_usd"], 4),
-            "cap_usd": settings.monthly_cap_usd(),
-            "mascots_completed": data["mascots_completed"],
-        }
+        if data["spent_usd"] + data["reserved_usd"] + amount_usd > settings.monthly_cap_usd() + 1e-9:
+            return False
+        data["reserved_usd"] = round(data["reserved_usd"] + amount_usd, 4)
+        _write(data)
+        return True
 
 
-def can_afford(estimate_usd: float) -> bool:
-    """Vrai si l'estimation tient dans le plafond mensuel restant."""
-    status = get_status()
-    return status["spent_usd"] + estimate_usd <= status["cap_usd"] + 1e-9
+def release(amount_usd: float) -> None:
+    """Rend une reservation (jamais en dessous de zero)."""
+    with _lock:
+        data = _read()
+        data["reserved_usd"] = round(max(0.0, data["reserved_usd"] - amount_usd), 4)
+        _write(data)
+
+
+def reset_reservations() -> None:
+    """Au demarrage : aucun job ne tourne, les reservations restantes sont orphelines."""
+    with _lock:
+        data = _read()
+        data["reserved_usd"] = 0.0
+        _write(data)
 
 
 def add_spend(amount_usd: float, mascots_completed: int = 0) -> dict:
@@ -75,9 +106,4 @@ def add_spend(amount_usd: float, mascots_completed: int = 0) -> dict:
         data["spent_usd"] = round(data["spent_usd"] + amount_usd, 4)
         data["mascots_completed"] += mascots_completed
         _write(data)
-        return {
-            "month": data["month"],
-            "spent_usd": data["spent_usd"],
-            "cap_usd": settings.monthly_cap_usd(),
-            "mascots_completed": data["mascots_completed"],
-        }
+        return _status(data)

@@ -55,9 +55,11 @@ def fallback_model() -> str:
 # ---------------------------------------------------------------------------
 COST_TTI_PER_IMAGE_USD = 0.025  # fal-ai/flux/dev, par image generee (a verifier)
 
-# Par modele image-to-video, par seconde de video generee (a verifier).
+# Par modele image-to-video, par seconde de video generee, audio coupe
+# (fal.py envoie generate_audio=False ; avec audio, Kling 3.0 standard
+# passe a 0,126 $/s, page tarif fal.ai lue le 2026-10-30).
 I2V_RATES_USD_PER_SECOND = {
-    "fal-ai/kling-video/v3/standard/image-to-video": 0.084,  # Kling 3.0 standard
+    "fal-ai/kling-video/v3/standard/image-to-video": 0.084,  # Kling 3.0 standard, verifie
     "fal-ai/kling-video/v3/pro/image-to-video": 0.140,  # Kling 3.0 pro, estimation
 }
 

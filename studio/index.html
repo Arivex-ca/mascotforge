@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MascotForge V2 : Studio</title>
+<title>MascotForge : Studio</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header class="barre-haut">
   <div>
-    <h1>MascotForge <span class="badge-v2">V2</span></h1>
+    <h1>MascotForge <span class="badge-v2">V3</span></h1>
     <p class="sous-titre">Studio de génération de mascottes animées par IA.</p>
   </div>
   <div class="compteur-cout" id="compteur-cout" title="Coût cumulé ce mois-ci (borne Arivex)">
@@ -36,14 +36,15 @@
     <div id="panneau-upload" class="panneau-onglet" role="tabpanel">
       <label class="zone-fichier" for="fichier">
         <input type="file" id="fichier" accept="image/png,image/jpeg,image/webp" hidden>
-        <span class="zone-texte" id="zone-texte">Clique pour choisir une image (PNG, JPEG ou WebP)</span>
+        <img id="apercu-fichier" class="apercu-fichier fond-damier cache" alt="">
+        <span class="zone-texte" id="zone-texte">Clique pour choisir une image (PNG détouré conseillé pour un fond transparent, 10 Mo max)</span>
       </label>
       <button type="button" class="primaire" id="btn-upload" disabled>Uploader et créer le personnage</button>
     </div>
 
     <div id="panneau-prompt" class="panneau-onglet cache" role="tabpanel">
       <label class="etiquette" for="prompt">Décris la mascotte à générer</label>
-      <textarea id="prompt" rows="4" placeholder="Exemple : un renard roux aux yeux ronds, style cartoon 2D, couleurs vives, sur fond uni"></textarea>
+      <textarea id="prompt" rows="4" placeholder="Exemple : un renard roux aux yeux ronds, style cartoon 2D, couleurs vives (évite le vert : le fond vert sert au détourage)"></textarea>
       <button type="button" class="primaire" id="btn-prompt">Générer le personnage</button>
     </div>
 
@@ -53,26 +54,50 @@
     </div>
   </section>
 
-  <section id="etape-2" class="verrouillee" aria-label="Étape 2 : génération">
-    <h2><span class="num">2</span>Génération</h2>
-    <p class="muted">La génération des 6 états prend quelques minutes. Tu peux laisser cette page ouverte, la progression s'affiche en temps réel ci-dessous.</p>
+  <section id="etape-2" class="verrouillee" aria-label="Étape 2 : états et génération">
+    <h2><span class="num">2</span>États et génération</h2>
+    <p class="muted">Pars d'un usage, puis ajoute, retire ou décris tes propres états. Chaque état coûte un clip de 3 secondes. Une boucle tourne tant que l'état est actif ; sans boucle, l'état joue une fois puis revient au précédent.</p>
     <div class="ligne">
-      <button type="button" class="primaire" id="btn-generer" disabled>Générer les 6 états</button>
-      <span class="muted" id="statut-job"></span>
+      <label class="etiquette-inline" for="usage">Usage</label>
+      <select id="usage"></select>
+    </div>
+    <ul id="editeur-etats" class="editeur-etats"></ul>
+    <div class="ligne">
+      <button type="button" id="btn-ajouter-etat">Ajouter un état</button>
+      <span class="muted" id="estimation" aria-live="polite"></span>
+    </div>
+    <div class="ligne">
+      <button type="button" class="primaire" id="btn-generer" disabled>Générer les états</button>
+      <span class="muted" id="statut-job" aria-live="polite"></span>
     </div>
     <ul id="liste-etats" class="liste-etats"></ul>
+    <div class="ligne">
+      <button type="button" id="btn-relancer" class="cache">Relancer les états en échec</button>
+    </div>
   </section>
 
   <section id="etape-3" class="verrouillee" aria-label="Étape 3 : aperçu">
     <h2><span class="num">3</span>Aperçu</h2>
-    <p class="muted verrouille-msg">Termine la génération pour voir les 6 clips ici.</p>
-    <div id="grille-videos" class="grille-videos"></div>
+    <p class="muted verrouille-msg">Termine la génération pour essayer la mascotte ici, dans le vrai widget.</p>
+    <div class="apercu-widget">
+      <div class="scene fond-damier" id="scene"></div>
+      <div>
+        <p class="muted">Clique un état : la mascotte le joue à la fin du clip en cours.</p>
+        <div class="controles-etats" id="controles-etats"></div>
+        <p class="muted">Fond de test :</p>
+        <div class="controles-etats" id="controles-fond">
+          <button type="button" data-fond="fond-damier">Damier</button>
+          <button type="button" data-fond="fond-clair">Clair</button>
+          <button type="button" data-fond="fond-sombre">Sombre</button>
+        </div>
+      </div>
+    </div>
   </section>
 
   <section id="etape-4" class="verrouillee" aria-label="Étape 4 : export">
     <h2><span class="num">4</span>Export</h2>
     <p class="muted verrouille-msg">Le dossier sera disponible quand la génération sera terminée.</p>
-    <p class="muted">Le dossier contient les 6 vidéos MP4 et le manifest du widget.</p>
+    <p class="muted">Le dossier contient une vidéo par état, le manifest et le widget prêt à coller dans ton site.</p>
     <div class="ligne">
       <button type="button" class="primaire" id="btn-export" disabled>Exporter le dossier</button>
       <a id="lien-telechargement" class="lien-telechargement cache" href="#">Télécharger le zip</a>
@@ -82,9 +107,10 @@
 </main>
 
 <footer class="pied">
-  <span class="muted">MascotForge V2, brique produit Arivex. Coût estimé par mascotte : environ 1,50 $.</span>
+  <span class="muted">MascotForge, brique produit Arivex. Coût : environ 0,25 $ par état, plus 0,03 $ pour une image générée.</span>
 </footer>
 
+<script src="/widget/mascot-avatar.js"></script>
 <script src="studio.js"></script>
 </body>
 </html>
