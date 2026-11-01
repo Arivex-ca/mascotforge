@@ -19,14 +19,28 @@ ERROR = {"level": "error", "where": "parts[4]", "message": "parts[4] is complete
 
 @pytest.fixture
 def checker(monkeypatch):
-    """Verificateur simule : rend les rapports de `reports` dans l'ordre, puis un rapport propre."""
+    """Verificateur simule : rend les rapports de `reports` dans l'ordre, puis un rapport propre.
+    Le rendu est simule aussi : une image factice par appel."""
     reports: list[list[dict]] = []
     monkeypatch.setattr(image3d, "available", lambda: True)
     monkeypatch.setattr(
         image3d, "check_spec",
         lambda spec: {"ok": not reports or not reports[0], "issues": reports.pop(0) if reports else []},
     )
+
+    def fake_render(spec, out):
+        out.write_bytes(b"\x89PNG-rendu-factice")
+        return out
+
+    monkeypatch.setattr(image3d, "render_sheet", fake_render)
     return reports
+
+
+def _answer(name: str) -> str:
+    """Une reponse du modele : quelques lignes, puis la fiche du robot renommee."""
+    spec = json.loads(ARIVEX_SPEC_TEXT)
+    spec["name"] = name
+    return f"The arms should be white.\n```json\n{json.dumps(spec)}\n```"
 
 
 def _create(client):
@@ -39,15 +53,18 @@ def _create(client):
 def test_image_becomes_a_checked_3d_character(client, fal_fake, checker):
     spec_id, job = _create(client)
     assert job["status"] == "done", job
-    assert job["rounds"] == 1 and job["cost_usd"] == VISION_COST
+    assert job["rounds"] == 1 and job["visual_rounds"] == 1
+    assert fal_fake.vision_images == [1, 2], "ecriture avec l'image, puis comparaison image + rendu"
+    assert "Image 2 is a render" in fal_fake.vision_prompts[1]
+    assert job["cost_usd"] == round(2 * VISION_COST, 4)
     assert job["name"] == "Arivex"
     cost = client.get("/api/cost").json()
     assert cost["reserved_usd"] == 0
-    assert cost["spent_usd"] == VISION_COST, "le cout reel renvoye par fal.ai est compte"
+    assert cost["spent_usd"] == round(2 * VISION_COST, 4), "le cout reel renvoye par fal.ai est compte"
 
     manifest = client.get(f"/api/engines/3d/manifest.json?spec={spec_id}").json()
     assert manifest["engine"] == "3d" and manifest["engine_config"] == {}
-    assert manifest["engine_spec"]["id"] == spec_id, "l'identifiant est impose, pas laisse au modele"
+    assert manifest["engine_spec"]["id"] == image3d.wobnimo_id(spec_id), "identifiant impose, pas laisse au modele"
     assert manifest["engine_spec"]["parts"]
 
     resp = client.post("/api/engines/3d/export", json={"config": {"spec": spec_id}})
@@ -62,9 +79,9 @@ def test_checker_fixes_go_back_to_the_model(client, fal_fake, checker):
     checker.append([ERROR])
     _, job = _create(client)
     assert job["status"] == "done" and job["rounds"] == 2
-    assert len(fal_fake.vision_prompts) == 2
+    assert len(fal_fake.vision_prompts) == 3, "ecriture, correction, comparaison"
     assert "Move it outward: at [0, 0.585, 0.155]." in fal_fake.vision_prompts[1]
-    assert job["cost_usd"] == round(2 * VISION_COST, 4)
+    assert job["cost_usd"] == round(3 * VISION_COST, 4)
 
 
 def test_gives_up_after_the_last_round_and_still_counts_the_cost(client, fal_fake, checker):
@@ -82,6 +99,34 @@ def test_unreadable_answer_is_asked_again(client, fal_fake, checker):
     _, job = _create(client)
     assert job["status"] == "done" and job["rounds"] == 2
     assert "not a valid JSON object" in fal_fake.vision_prompts[1]
+
+
+def test_visual_comparison_corrects_the_spec(client, fal_fake, checker):
+    fal_fake.vision_answers.extend([f"```json\n{ARIVEX_SPEC_TEXT}\n```", _answer("Arivex Blanc"), "OK"])
+    spec_id, job = _create(client)
+    assert job["status"] == "done" and job["visual_rounds"] == 2
+    assert fal_fake.vision_images == [1, 2, 2]
+    assert client.get(f"/api/engines/3d/manifest.json?spec={spec_id}").json()["engine_spec"]["name"] == "Arivex Blanc"
+    assert job["cost_usd"] == round(3 * VISION_COST, 4)
+
+
+def test_visual_correction_that_breaks_the_geometry_is_dropped(client, fal_fake, checker):
+    fal_fake.vision_answers.extend([f"```json\n{ARIVEX_SPEC_TEXT}\n```", _answer("Casse"), _answer("Casse encore")])
+    checker.extend([[], [ERROR], [ERROR]])  # la fiche de depart tient, la correction et sa reparation non
+    spec_id, job = _create(client)
+    assert job["status"] == "done" and job["visual_rounds"] == 1
+    assert job["name"] == "Arivex", "on garde la derniere fiche valide"
+    assert client.get(f"/api/engines/3d/manifest.json?spec={spec_id}").json()["engine_spec"]["name"] == "Arivex"
+
+
+def test_without_a_browser_the_comparison_is_skipped(client, fal_fake, checker, monkeypatch):
+    def no_browser(spec, out):
+        raise image3d.RenderError("Chrome introuvable")
+
+    monkeypatch.setattr(image3d, "render_sheet", no_browser)
+    _, job = _create(client)
+    assert job["status"] == "done" and job["visual_rounds"] == 0
+    assert fal_fake.vision_images == [1]
 
 
 def test_refusals(client, checker, monkeypatch):
@@ -108,6 +153,31 @@ def test_real_checker_accepts_the_robot_and_catches_a_buried_part():
     report = image3d.check_spec(broken)
     assert not report["ok"]
     assert any(i["level"] == "error" and i["where"] == "parts[4]" for i in report["issues"])
+
+
+@pytest.mark.skipif(not image3d.available(), reason="Node absent")
+def test_real_checker_accepts_our_ids_even_when_they_start_with_a_digit():
+    """Regression du 2026-11-01 : un numero comme 47851f087a0c etait refuse par Wobnimo
+    (un id doit commencer par une lettre) et la creation echouait apres 3 passes payees."""
+    spec = json.loads(ARIVEX_SPEC_TEXT)
+    spec["id"] = image3d.wobnimo_id("47851f087a0c")
+    report = image3d.check_spec(spec)
+    assert report["ok"] and report["issues"] == [], report["issues"]
+
+
+@pytest.mark.skipif(not image3d.available(), reason="Node absent")
+def test_real_render_sheet(tmp_path):
+    try:
+        out = image3d.render_sheet(json.loads(ARIVEX_SPEC_TEXT), tmp_path / "planche.png")
+    except image3d.RenderError as exc:
+        pytest.skip(f"rendu indisponible ici (navigateur ?) : {exc}")
+    assert out.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n" and out.stat().st_size > 50_000
+
+
+def test_matches_reference():
+    assert image3d.matches_reference("OK")
+    assert image3d.matches_reference("  ok. It matches.")
+    assert not image3d.matches_reference(_answer("Autre"))
 
 
 def test_extract_spec_reads_a_json_block():

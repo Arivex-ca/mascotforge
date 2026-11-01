@@ -40,7 +40,7 @@ ENGINES: dict[str, dict] = {
         "credit": "Wobnimo, par Pourya Akhbari (licence MIT)",
         "source": "https://github.com/Pouryaak/wobnimo",
         "tag": "wobnimo-mascot",
-        "script": "wobnimo/wobnimo.js",
+        "script": "wobnimo/dist/wobnimo.js",
         "license": "wobnimo/LICENSE",
         "states": ["idle", "listening", "thinking", "speaking", "working", "error",
                    "celebrating", "surprised", "sleeping", "sad"],

@@ -156,16 +156,23 @@ mesure :
    `anthropic/claude-sonnet-5.5`, appelé via l'endpoint fal.ai
    `openrouter/router/vision`) écrit la fiche du personnage en JSON, en suivant
    le guide de Wobnimo embarqué dans `engines/wobnimo/skill/`.
-3. Le vérificateur de Wobnimo (`engines/wobnimo/cli.mjs`, lancé avec Node 18 ou
-   plus) mesure la vraie forme 3D. Ses erreurs et leurs corrections exactes
+3. Le vérificateur de Wobnimo (`engines/wobnimo/dist/cli.js`, lancé avec Node 18
+   ou plus) mesure la vraie forme 3D. Ses erreurs et leurs corrections exactes
    repartent au modèle, en 3 passes au plus.
-4. La fiche validée s'affiche dans le widget (`"engine_spec"` du manifest) et
+4. Le vérificateur ne juge pas la ressemblance. Le serveur fait donc le rendu
+   de la fiche (`wobnimo preview`, qui ouvre Chrome ou Edge sans fenêtre ;
+   `MASCOTFORGE_BROWSER` donne son chemin s'il n'est pas trouvé) et envoie au
+   modèle l'image et le rendu côte à côte. Le modèle répond OK ou renvoie une
+   fiche corrigée, qui repasse par le vérificateur ; une correction qui casse la
+   géométrie est écartée. 2 comparaisons au plus. Sans navigateur, cette étape
+   est sautée.
+5. La fiche validée s'affiche dans le widget (`"engine_spec"` du manifest) et
    part dans l'export.
 
-Coût : le coût réel renvoyé par fal.ai à chaque appel, environ 0,05 à 0,25 $ par
-personnage ; 0,50 $ sont réservés sous le plafond pendant la création. Le
-résultat est une interprétation dans le style Wobnimo : au repos, les yeux de
-l'écran LED restent ceux du moteur.
+Coût : le coût réel renvoyé par fal.ai à chaque appel, environ 0,15 à 0,60 $ par
+personnage selon le nombre de passes ; 1 $ est réservé sous le plafond pendant
+la création. Le résultat reste une interprétation dans le style Wobnimo : au
+repos, les yeux de l'écran LED restent ceux du moteur.
 
 | Méthode | Route | Description |
 |---|---|---|

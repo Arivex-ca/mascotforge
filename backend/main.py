@@ -386,6 +386,7 @@ def api_spec_status(spec_id: str) -> dict:
     return {
         "spec_id": job["id"], "status": job["status"], "error": job.get("error"),
         "name": job.get("name"), "rounds": job.get("rounds", 0),
+        "visual_rounds": job.get("visual_rounds", 0),
         "warnings": len(warnings), "cost_usd": job.get("cost_usd", 0.0), "model": job.get("model"),
     }
 

@@ -30,19 +30,23 @@ class FakeFal:
         self.video_calls: list[tuple[str, str]] = []  # (mouvement, modele)
         self.durations: list[int | None] = []  # duree demandee pour chaque clip
         self.vision_prompts: list[str] = []  # messages envoyes au modele vision
-        self.vision_answers: list[str] = []  # reponses imposees, dans l'ordre (sinon la fiche du robot)
+        self.vision_images: list[int] = []  # nombre d'images de chaque appel
+        self.vision_answers: list[str] = []  # reponses imposees, dans l'ordre (sinon voir describe_image)
         self.fail_primary_when: str | None = "talking"  # panne du principal si le mouvement contient ce mot
         self.fail_always_when: str | None = None  # panne de tous les modeles
         self.download_failures = 0  # nombre de telechargements a faire echouer
 
     async def describe_image(
-        self, image_url: str, system_prompt: str, prompt: str, model: str | None = None
+        self, image_urls: list[str], system_prompt: str, prompt: str, model: str | None = None
     ) -> tuple[str, float]:
-        assert image_url.startswith("https://fal.media/fake/")
+        assert all(url.startswith("https://fal.media/fake/") for url in image_urls)
         assert "Wobnimo" in system_prompt
         self.vision_prompts.append(prompt)
-        answer = self.vision_answers.pop(0) if self.vision_answers else f"```json\n{ARIVEX_SPEC_TEXT}\n```"
-        return answer, VISION_COST
+        self.vision_images.append(len(image_urls))
+        if self.vision_answers:
+            return self.vision_answers.pop(0), VISION_COST
+        # Par defaut : la fiche du robot pour une ecriture, OK pour une comparaison (2 images).
+        return ("OK" if len(image_urls) > 1 else f"```json\n{ARIVEX_SPEC_TEXT}\n```"), VISION_COST
 
     async def generate_character_image(self, prompt: str) -> str:
         assert prompt.startswith(fal_module.CHARACTER_PROMPT_PREFIX)

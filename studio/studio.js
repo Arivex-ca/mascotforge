@@ -394,8 +394,10 @@ function effacerResultatPersonnage3d() {
 function afficherResultatPersonnage3d(job) {
   var passes = typeof job.rounds === "number" ? job.rounds : 0;
   var info = $("info-personnage-3d");
+  var comparaisons = typeof job.visual_rounds === "number" ? job.visual_rounds : 0;
   info.textContent = (job.name || "Personnage 3D") + " est prêt. " + passes +
-    " passe" + (passes > 1 ? "s" : "") + ", coût : " + formaterMontant(job.cost_usd) + ".";
+    " passe" + (passes > 1 ? "s" : "") + " d'écriture, " + comparaisons + " comparaison" +
+    (comparaisons > 1 ? "s" : "") + " avec ton image, coût : " + formaterMontant(job.cost_usd) + ".";
   info.classList.remove("cache");
 
   var nombreAvertissements = typeof job.warnings === "number" ? job.warnings : 0;

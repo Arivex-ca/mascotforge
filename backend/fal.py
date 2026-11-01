@@ -181,15 +181,15 @@ async def _submit_and_wait(
 # API publique (mockable)
 # ---------------------------------------------------------------------------
 async def describe_image(
-    image_url: str, system_prompt: str, prompt: str, model: str | None = None
+    image_urls: list[str], system_prompt: str, prompt: str, model: str | None = None
 ) -> tuple[str, float]:
-    """Fait lire une image a un modele de langage. Retourne (texte, cout reel en USD)."""
+    """Fait lire des images a un modele de langage. Retourne (texte, cout reel en USD)."""
     _require_key()
     payload = {
         "model": model or settings.spec_model(),
         "prompt": prompt,
         "system_prompt": system_prompt,
-        "image_urls": [image_url],
+        "image_urls": list(image_urls),
         "temperature": 0.3,
         "max_tokens": 16000,
         # Les modeles qui raisonnent (claude-sonnet-5.5) refusent l'appel si le

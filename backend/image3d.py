@@ -3,9 +3,11 @@
 Un modele qui lit les images (via fal.ai, endpoint openrouter/router/vision)
 regarde l'image et ecrit la fiche Wobnimo (CharacterSpec, en JSON) en suivant
 le guide du projet Wobnimo (engines/wobnimo/skill/). Le verificateur de Wobnimo
-(engines/wobnimo/cli.mjs, lance avec Node) mesure la vraie forme 3D ; ses
+(engines/wobnimo/dist/cli.js, lance avec Node) mesure la vraie forme 3D ; ses
 erreurs et leurs corrections exactes repartent au modele, jusqu'a
-SPEC_MAX_ROUNDS passes. La fiche validee s'affiche dans <wobnimo-mascot> (el.spec).
+SPEC_MAX_ROUNDS passes. Le verificateur ne juge pas la ressemblance : le
+serveur fait donc le rendu de la fiche et le modele le compare a l'image,
+jusqu'a SPEC_VISUAL_ROUNDS fois. La fiche s'affiche dans <wobnimo-mascot> (el.spec).
 """
 from __future__ import annotations
 
@@ -34,6 +36,8 @@ _lock = threading.Lock()
 ID_RE = re.compile(r"^[a-f0-9]{12}$")
 JSON_BLOCK_RE = re.compile(r"```(?:json)?\s*(\{.*\})\s*```", re.DOTALL)
 CHECK_TIMEOUT_S = 90
+RENDER_TIMEOUT_S = 180
+RENDER_SIZE = 200  # cote de chaque vue sur la planche envoyee au modele
 INTERRUPTED_ERROR = "Creation interrompue par un redemarrage du serveur. Relance-la."
 
 
@@ -53,7 +57,7 @@ def node_bin() -> str | None:
 
 
 def checker_path() -> Path:
-    return settings.engines_dir() / "wobnimo" / "cli.mjs"
+    return settings.engines_dir() / "wobnimo" / "dist" / "cli.js"
 
 
 def available() -> bool:
@@ -85,6 +89,40 @@ def check_spec(spec: dict) -> dict:
         return {"ok": False, "issues": [
             {"level": "error", "where": "spec", "message": f"The checker could not load the spec: {detail}", "fix": ""},
         ]}
+
+
+class RenderError(RuntimeError):
+    """Rendu impossible (pas de navigateur, delai depasse) : la comparaison est sautee."""
+
+
+def render_sheet(spec: dict, out: Path) -> Path:
+    """Planche de rendu Wobnimo (vues et etats) avec `wobnimo preview`, qui ouvre
+    Chrome ou Edge sans fenetre. MASCOTFORGE_BROWSER donne son chemin s'il n'est
+    pas trouve tout seul. Leve RenderError."""
+    exe = node_bin()
+    if not exe:
+        raise RenderError("Node est introuvable.")
+    env = dict(os.environ)
+    if os.environ.get("MASCOTFORGE_BROWSER"):
+        env["WOBNIMO_BROWSER"] = os.environ["MASCOTFORGE_BROWSER"]
+    with tempfile.TemporaryDirectory(prefix="mascotforge-rendu-") as tmp:
+        path = Path(tmp) / "spec.mjs"
+        path.write_text("export default " + json.dumps(spec) + ";\n", encoding="utf-8")
+        try:
+            proc = subprocess.run(
+                [exe, str(checker_path()), "preview", str(path), "--out", str(out), "--size", str(RENDER_SIZE)],
+                capture_output=True, text=True, encoding="utf-8", timeout=RENDER_TIMEOUT_S, env=env,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RenderError(f"rendu plus long que {RENDER_TIMEOUT_S} s") from exc
+    if proc.returncode != 0 or not out.is_file():
+        raise RenderError((proc.stderr or proc.stdout or "").strip()[-300:] or f"code {proc.returncode}")
+    return out
+
+
+def wobnimo_id(spec_id: str) -> str:
+    """L'identifiant donne a Wobnimo : il doit commencer par une lettre, nos numeros non."""
+    return f"img-{spec_id}"
 
 
 def _counts(issues: list[dict]) -> tuple[int, int]:
@@ -134,6 +172,27 @@ def fix_prompt(spec: dict, issues: list[dict]) -> str:
         "else, and return the full corrected CharacterSpec.\n\n"
         f"Your spec:\n```json\n{json.dumps(spec)}\n```\n\nReport:\n{report}"
     )
+
+
+def visual_prompt(spec: dict) -> str:
+    return (
+        "Image 1 is the reference. Image 2 is a render of your current spec: the top-left picture is "
+        "the front view in idle; the others show the three-quarter, side and back views, a face "
+        "close-up and the other states.\n\n"
+        "Compare the front view with the reference: silhouette, proportions (head size and shape "
+        "against the body), colours, and features that are missing, extra or misplaced. A coloured "
+        "reflection or glow on a white surface is not the colour of that surface. The engine draws "
+        "the LED screen face itself: ignore the shapes of its eyes and mouth.\n\n"
+        "If the front view already matches the reference well, reply with exactly OK. Otherwise list "
+        "the differences in a few short lines, then return the full corrected CharacterSpec in one "
+        "```json block, changing only what brings it closer to the reference.\n\n"
+        f"Your current spec:\n```json\n{json.dumps(spec)}\n```"
+    )
+
+
+def matches_reference(text: str) -> bool:
+    """Le modele a repondu OK, sans fiche corrigee."""
+    return text.strip().upper().startswith("OK") and not JSON_BLOCK_RE.search(text)
 
 
 def retry_prompt(error: str) -> str:
@@ -201,7 +260,7 @@ def create_job(image_path: Path) -> str:
     with _lock:
         _save({
             "id": spec_id, "status": "queued", "error": None, "name": None, "spec": None,
-            "issues": [], "rounds": 0, "cost_usd": 0.0, "model": settings.spec_model(),
+            "issues": [], "rounds": 0, "visual_rounds": 0, "cost_usd": 0.0, "model": settings.spec_model(),
             "image_path": str(image_path), "image_url": None, "created_at": _utcnow(),
         })
     return spec_id
@@ -232,41 +291,83 @@ def recover_interrupted() -> int:
     return count
 
 
+async def _ask(spec_id: str, image_urls: list[str], prompt: str, spent: float) -> tuple[str, float]:
+    """Un appel au modele ; le cout reel s'ajoute au total de la creation."""
+    text, cost = await fal_module.describe_image(image_urls, system_prompt(), prompt)
+    spent += cost
+    _update(spec_id, cost_usd=round(spent, 4))
+    return text, spent
+
+
+async def _until_checked(
+    spec_id: str, image_urls: list[str], text: str, calls_left: int, spent: float
+) -> tuple[dict | None, list[dict], float, int]:
+    """Lit la fiche de `text` et la verifie ; tant qu'il reste des problemes et des
+    appels, renvoie le rapport au modele. Retourne (fiche ou None, rapport, cout, appels faits)."""
+    spec: dict | None = None
+    issues: list[dict] = []
+    calls = 0
+    while True:
+        try:
+            spec = extract_spec(text)
+        except ValueError as exc:
+            spec, issues = None, []
+            prompt = retry_prompt(str(exc)[:200])
+        else:
+            spec["id"] = wobnimo_id(spec_id)  # identifiant stable, quel que soit ce qu'ecrit le modele
+            issues = (await asyncio.to_thread(check_spec, spec))["issues"]
+            if _counts(issues) == (0, 0):
+                return spec, issues, spent, calls
+            prompt = fix_prompt(spec, issues)
+        if calls >= calls_left:
+            return spec, issues, spent, calls
+        text, spent = await _ask(spec_id, image_urls, prompt, spent)
+        calls += 1
+
+
 async def run_job(spec_id: str, reserved_usd: float) -> dict:
-    """Image -> fiche -> verificateur -> corrections, puis comptabilise le cout reel."""
+    """Image -> fiche -> verificateur -> comparaison du rendu avec l'image, puis cout reel."""
     spent = 0.0
     try:
         job = _update(spec_id, status="running")
         image_url = await fal_module.upload_character_image(Path(job["image_path"]))
         _update(spec_id, image_url=image_url)
-        prompt = first_prompt(spec_id)
-        spec: dict | None = None
-        issues: list[dict] = []
-        for round_no in range(1, settings.SPEC_MAX_ROUNDS + 1):
-            text, cost = await fal_module.describe_image(image_url, system_prompt(), prompt)
-            spent += cost
-            try:
-                spec = extract_spec(text)
-            except ValueError as exc:
-                prompt = retry_prompt(str(exc)[:200])
-                _update(spec_id, rounds=round_no, cost_usd=round(spent, 4))
-                continue
-            spec["id"] = spec_id  # identifiant stable, quel que soit ce qu'ecrit le modele
-            report = await asyncio.to_thread(check_spec, spec)
-            issues = report["issues"]
-            errors, warnings = _counts(issues)
-            _update(spec_id, rounds=round_no, cost_usd=round(spent, 4), spec=spec, issues=issues,
-                    name=str(spec.get("name") or "Mascotte"))
-            if errors == 0 and warnings == 0:
-                break
-            prompt = fix_prompt(spec, issues)
-        errors, _ = _counts(issues)
-        if spec is None or errors:
+
+        # 1. Le modele ecrit la fiche ; le verificateur la corrige jusqu'a ce qu'elle tienne.
+        text, spent = await _ask(spec_id, [image_url], first_prompt(wobnimo_id(spec_id)), spent)
+        spec, issues, spent, calls = await _until_checked(
+            spec_id, [image_url], text, settings.SPEC_MAX_ROUNDS - 1, spent
+        )
+        _update(spec_id, rounds=1 + calls, spec=spec, issues=issues,
+                name=str((spec or {}).get("name") or "Mascotte"))
+        if spec is None or _counts(issues)[0]:
             raise Image3DError(
                 "Le personnage 3D n'a pas passe la verification de Wobnimo apres "
                 f"{settings.SPEC_MAX_ROUNDS} essais. Relance avec une image plus nette ou plus simple."
             )
-        return _update(spec_id, status="done", error=None, cost_usd=round(spent, 4))
+
+        # 2. Le modele voit le rendu de sa fiche a cote de l'image et corrige la ressemblance.
+        visual = 0
+        while visual < settings.SPEC_VISUAL_ROUNDS:
+            try:
+                sheet = await asyncio.to_thread(render_sheet, spec, _dir() / f"{spec_id}-rendu-{visual + 1}.png")
+                render_url = await fal_module.upload_character_image(sheet)
+            except RenderError as exc:
+                log.warning("personnage 3D %s : comparaison sautee, rendu impossible (%s)", spec_id, exc)
+                break
+            visual += 1
+            text, spent = await _ask(spec_id, [image_url, render_url], visual_prompt(spec), spent)
+            _update(spec_id, visual_rounds=visual)
+            if matches_reference(text):
+                break
+            candidate, candidate_issues, spent, _ = await _until_checked(spec_id, [image_url], text, 1, spent)
+            if candidate is None or _counts(candidate_issues)[0]:
+                log.warning("personnage 3D %s : correction visuelle refusee, fiche precedente gardee", spec_id)
+                break
+            spec, issues = candidate, candidate_issues
+            _update(spec_id, spec=spec, issues=issues, name=str(spec.get("name") or "Mascotte"))
+
+        return _update(spec_id, status="done", error=None, spec=spec, issues=issues, cost_usd=round(spent, 4))
     except Exception as exc:
         log.exception("personnage 3D %s : echec", spec_id)
         message = str(exc) if isinstance(exc, Image3DError) else public_error(exc)

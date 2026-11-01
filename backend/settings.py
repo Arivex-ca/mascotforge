@@ -49,7 +49,8 @@ def spec_model() -> str:
 
 SPEC_ENDPOINT = "openrouter/router/vision"  # endpoint fal.ai ; le cout reel revient dans usage.cost
 SPEC_MAX_ROUNDS = 3  # passes modele + verificateur avant d'abandonner
-SPEC_RESERVE_USD = 0.5  # reserve sous le plafond pendant une creation ; le cout reel est compte a la fin
+SPEC_VISUAL_ROUNDS = 2  # comparaisons du rendu avec l'image, apres la verification
+SPEC_RESERVE_USD = 1.0  # reserve sous le plafond pendant une creation ; le cout reel est compte a la fin
 
 
 def fallback_model() -> str:
