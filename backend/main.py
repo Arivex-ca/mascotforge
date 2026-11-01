@@ -13,11 +13,12 @@ import httpx
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.datastructures import Headers
 
 from backend import alpha
 from backend import cost as cost_module
 from backend import engines as engines_module
-from backend import image3d
+from backend import image3d, openrouter
 from backend import exporter, fal as fal_module
 from backend import pipeline, settings
 from backend import states as states_module
@@ -31,6 +32,8 @@ from backend.models import (
     GenerateResponse,
     HealthResponse,
     JobResponse,
+    KeyTestRequest,
+    KeyTestResponse,
     PresetsResponse,
     RegenerateRequest,
     StateInfo,
@@ -65,17 +68,46 @@ async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
     yield
 
 
+class RequestKeyContextMiddleware:
+    """Isole les cles et le fournisseur dans le contexte de chaque requete."""
+
+    def __init__(self, app) -> None:  # type: ignore[no-untyped-def]
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:  # type: ignore[no-untyped-def]
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = Headers(scope=scope)
+        tokens = settings.bind_request_context(
+            headers.get("x-fal-key"),
+            headers.get("x-openrouter-key"),
+            headers.get("x-vision-provider"),
+        )
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            settings.reset_request_context(tokens)
+
+
 app = FastAPI(title="MascotForge", version="0.3.0", lifespan=lifespan)
+app.add_middleware(RequestKeyContextMiddleware)
 
 
 def _no_fal_key_error() -> HTTPException:
-    return HTTPException(
-        status_code=503,
-        detail=(
-            "FAL_KEY n'est pas configuree : cette operation necessite fal.ai. "
-            "Ajoutez la variable d'environnement FAL_KEY puis reessayez."
-        ),
-    )
+    return HTTPException(status_code=503, detail="Colle ta cle fal.ai dans Reglages.")
+
+
+def _no_openrouter_key_error() -> HTTPException:
+    return HTTPException(status_code=503, detail="Colle ta cle OpenRouter dans Reglages.")
+
+
+def _require_vision_key() -> None:
+    if settings.vision_provider() == "openrouter":
+        if not settings.openrouter_key_available():
+            raise _no_openrouter_key_error()
+    elif not settings.fal_key_available():
+        raise _no_fal_key_error()
 
 
 def _start(coro) -> None:  # type: ignore[no-untyped-def]
@@ -159,12 +191,38 @@ def api_presets() -> PresetsResponse:
     )
 
 
+@app.post("/api/keys/test", response_model=KeyTestResponse)
+async def api_test_key(body: KeyTestRequest) -> KeyTestResponse:
+    """Teste une cle sans lancer de generation ni conserver le secret."""
+    if body.provider == "fal":
+        if not settings.get_request_fal_key():
+            return KeyTestResponse(ok=False, message="Colle ta cle fal.ai dans Reglages.")
+        try:
+            ok = await fal_module.test_key()
+        except fal_module.FalApiError:
+            return KeyTestResponse(ok=False, message="Impossible de tester la cle fal.ai maintenant.")
+        return KeyTestResponse(
+            ok=ok,
+            message="Cle fal.ai valide." if ok else "Cle fal.ai refusee.",
+        )
+    if not settings.openrouter_key_available():
+        return KeyTestResponse(ok=False, message="Colle ta cle OpenRouter dans Reglages.")
+    try:
+        ok = await openrouter.test_key()
+    except openrouter.OpenRouterApiError:
+        return KeyTestResponse(ok=False, message="Impossible de tester la cle OpenRouter maintenant.")
+    return KeyTestResponse(
+        ok=ok,
+        message="Cle OpenRouter valide." if ok else "Cle OpenRouter refusee.",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Personnages
 # ---------------------------------------------------------------------------
 @app.post("/api/character/from-prompt", response_model=CharacterResponse)
 async def api_character_from_prompt(body: CharacterFromPromptRequest) -> CharacterResponse:
-    if not settings.fal_key_configured():
+    if not settings.fal_key_available():
         raise _no_fal_key_error()
     price = settings.COST_TTI_PER_IMAGE_USD
     if not cost_module.reserve(price):
@@ -197,7 +255,7 @@ async def api_character_from_prompt(body: CharacterFromPromptRequest) -> Charact
 
 @app.post("/api/character/from-upload", response_model=CharacterResponse)
 async def api_character_from_upload(file: UploadFile = File(...)) -> CharacterResponse:
-    if not settings.fal_key_configured():
+    if not settings.fal_key_available():
         raise _no_fal_key_error()
     ext = Path(file.filename or "").suffix.lower()
     if ext not in ALLOWED_UPLOAD_EXTENSIONS:
@@ -239,7 +297,7 @@ async def api_character_from_upload(file: UploadFile = File(...)) -> CharacterRe
 # ---------------------------------------------------------------------------
 @app.post("/api/generate", response_model=GenerateResponse)
 async def api_generate(body: GenerateRequest) -> GenerateResponse:
-    if not settings.fal_key_configured():
+    if not settings.fal_key_available():
         raise _no_fal_key_error()
     try:
         if body.states is not None:
@@ -271,7 +329,7 @@ def api_get_job(job_id: str) -> JobResponse:
 @app.post("/api/jobs/{job_id}/retry", response_model=GenerateResponse)
 async def api_retry_job(job_id: str) -> GenerateResponse:
     _get_job_or_404(job_id)
-    if not settings.fal_key_configured():
+    if not settings.fal_key_available():
         raise _no_fal_key_error()
     try:
         names, reserved = pipeline.prepare_retry(job_id)
@@ -292,7 +350,7 @@ async def api_regenerate_state(job_id: str, state: str, body: RegenerateRequest)
     job = _get_job_or_404(job_id)
     if state not in job["states"]:
         raise HTTPException(status_code=404, detail=f"L'etat {state!r} n'existe pas dans ce job.")
-    if not settings.fal_key_configured():
+    if not settings.fal_key_available():
         raise _no_fal_key_error()
     try:
         reserved = pipeline.prepare_regenerate(job_id, state, body.prompt)
@@ -313,7 +371,7 @@ async def api_regenerate_state(job_id: str, state: str, body: RegenerateRequest)
 async def api_add_look(job_id: str, body: RegenerateRequest) -> GenerateResponse:
     """Ajoute (ou refait) le suivi du curseur d'une mascotte."""
     _get_job_or_404(job_id)
-    if not settings.fal_key_configured():
+    if not settings.fal_key_available():
         raise _no_fal_key_error()
     try:
         reserved = pipeline.prepare_look(job_id, body.prompt)
@@ -435,8 +493,7 @@ async def api_agent_spec_save(request: Request):  # type: ignore[no-untyped-def]
 @app.post("/api/engines/3d/from-image")
 async def api_spec_from_image(file: UploadFile = File(...)) -> dict:
     """Cree un personnage 3D Wobnimo d'apres une image. Suivi : GET /api/engines/3d/specs/{id}."""
-    if not settings.fal_key_configured():
-        raise _no_fal_key_error()
+    _require_vision_key()
     if not image3d.available():
         raise HTTPException(
             status_code=503,
@@ -474,7 +531,8 @@ def api_spec_status(spec_id: str) -> dict:
         "spec_id": job["id"], "status": job["status"], "error": job.get("error"),
         "name": job.get("name"), "rounds": job.get("rounds", 0),
         "visual_rounds": job.get("visual_rounds", 0),
-        "warnings": len(warnings), "cost_usd": job.get("cost_usd", 0.0), "model": job.get("model"),
+        "warnings": len(warnings), "cost_usd": job.get("cost_usd", 0.0),
+        "cost_estimated": job.get("cost_estimated", False), "model": job.get("model"),
     }
 
 

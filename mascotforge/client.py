@@ -25,7 +25,7 @@ class MascotForgeError(RuntimeError):
 
 
 class MascotForgeClient:
-    """Appelle le serveur MascotForge, qui reste proprietaire des couts et creations."""
+    """Appelle le serveur MascotForge avec les cles du processus si elles existent."""
 
     def __init__(
         self,
@@ -53,6 +53,15 @@ class MascotForgeClient:
             self._http.close()
 
     def _request(self, method: str, path: str, **kwargs: object):  # type: ignore[no-untyped-def]
+        headers = httpx.Headers(kwargs.pop("headers", None))
+        fal_key = os.getenv("MASCOTFORGE_FAL_KEY", "").strip()
+        openrouter_key = os.getenv("MASCOTFORGE_OPENROUTER_KEY", "").strip()
+        if fal_key:
+            headers.setdefault("X-Fal-Key", fal_key)
+        if openrouter_key:
+            headers.setdefault("X-OpenRouter-Key", openrouter_key)
+        if headers:
+            kwargs["headers"] = headers
         try:
             response = self._http.request(method, path, **kwargs)
         except (httpx.TimeoutException, httpx.NetworkError) as exc:

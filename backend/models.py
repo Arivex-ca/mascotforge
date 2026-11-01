@@ -1,6 +1,8 @@
 """Schemas pydantic de l'API MascotForge."""
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -31,6 +33,15 @@ class GenerateResponse(BaseModel):
 
 class RegenerateRequest(BaseModel):
     prompt: str | None = None  # nouvelle description ; absente : on garde l'ancienne
+
+
+class KeyTestRequest(BaseModel):
+    provider: Literal["fal", "openrouter"]
+
+
+class KeyTestResponse(BaseModel):
+    ok: bool
+    message: str
 
 
 class StateInfo(BaseModel):

@@ -30,6 +30,13 @@ var spec3dTerminee = null;
 var spec3dSuivieId = null;
 var intervallePoll3d = null;
 var poll3dEnCours = false;
+var usageActuel = "agent";
+var sante = null;
+var codeIntegrationActuel = "";
+var clesNavigateur = { fal: "", openrouter: "" };
+var fournisseurVision = "fal";
+var elementAvantReglages = null;
+var CLE_STOCKAGE_REGLAGES = "mascotforge.reglages.v1";
 
 var LIBELLES_REGLAGES = {
   shape: "Forme",
@@ -40,7 +47,342 @@ var LIBELLES_REGLAGES = {
   character: "Personnage"
 };
 
+var LIBELLES_ETATS = {
+  idle: "Au repos",
+  listening: "Écoute",
+  thinking: "Réfléchit",
+  talking: "Parle",
+  speaking: "Parle",
+  working: "Travaille",
+  happy: "Content",
+  celebrating: "Célèbre",
+  done: "Terminé",
+  error: "Erreur",
+  clicked: "Réagit",
+  surprised: "Surpris",
+  sleeping: "Dort",
+  sad: "Triste"
+};
+
+var LIBELLES_VALEURS = {
+  mochi: "Mochi",
+  bean: "Haricot",
+  pebble: "Galet",
+  squircle: "Carré doux",
+  pill: "Capsule",
+  drop: "Goutte",
+  kitty: "Chat",
+  cloud: "Nuage",
+  soft: "Doux",
+  matte: "Mat",
+  jelly: "Gelée",
+  glass: "Verre",
+  clay: "Argile",
+  velvet: "Velours",
+  lilac: "Lilas",
+  milk: "Lait",
+  peach: "Pêche",
+  butter: "Beurre",
+  matcha: "Matcha",
+  mint: "Menthe",
+  sky: "Ciel",
+  bubblegum: "Rose bonbon",
+  tangerine: "Mandarine",
+  cocoa: "Cacao",
+  ink: "Encre",
+  capsule: "Capsules",
+  dot: "Points"
+};
+
 function $(id) { return document.getElementById(id); }
+
+/* ---------- Réglages et stockage local des clés ---------- */
+
+function lireReglagesLocaux() {
+  try {
+    var local = window.localStorage.getItem(CLE_STOCKAGE_REGLAGES);
+    if (local) { return { donnees: JSON.parse(local), souvenir: true }; }
+  } catch (e) {
+    // Le navigateur peut refuser le stockage. La clé reste alors en mémoire.
+  }
+  try {
+    var session = window.sessionStorage.getItem(CLE_STOCKAGE_REGLAGES);
+    if (session) { return { donnees: JSON.parse(session), souvenir: false }; }
+  } catch (e) {
+    // Même repli en mémoire si le stockage de session est bloqué.
+  }
+  return { donnees: {}, souvenir: false };
+}
+
+function retirerReglagesLocaux() {
+  var ok = true;
+  try { window.localStorage.removeItem(CLE_STOCKAGE_REGLAGES); } catch (e) { ok = false; }
+  try { window.sessionStorage.removeItem(CLE_STOCKAGE_REGLAGES); } catch (e) { ok = false; }
+  return ok;
+}
+
+function enregistrerReglages() {
+  var donnees = JSON.stringify({
+    fal: clesNavigateur.fal,
+    openrouter: clesNavigateur.openrouter,
+    fournisseur: fournisseurVision
+  });
+  var souvenir = $("se-souvenir").checked;
+  var ok = true;
+  if (souvenir) {
+    try { window.localStorage.setItem(CLE_STOCKAGE_REGLAGES, donnees); } catch (e) { ok = false; }
+    try { window.sessionStorage.removeItem(CLE_STOCKAGE_REGLAGES); } catch (e) { ok = false; }
+  } else {
+    try { window.sessionStorage.setItem(CLE_STOCKAGE_REGLAGES, donnees); } catch (e) { ok = false; }
+    try { window.localStorage.removeItem(CLE_STOCKAGE_REGLAGES); } catch (e) { ok = false; }
+  }
+  $("statut-stockage").textContent = ok
+    ? (souvenir ? "Enregistré sur cet appareil." : "Conservé pour cet onglet seulement.")
+    : "Stockage bloqué par le navigateur. Les clés restent en mémoire jusqu'à la fermeture.";
+}
+
+function chargerReglages() {
+  var sauvegarde = lireReglagesLocaux();
+  var donnees = sauvegarde.donnees || {};
+  clesNavigateur.fal = typeof donnees.fal === "string" ? donnees.fal.trim() : "";
+  clesNavigateur.openrouter = typeof donnees.openrouter === "string" ? donnees.openrouter.trim() : "";
+  fournisseurVision = donnees.fournisseur === "openrouter" ? "openrouter" : "fal";
+  $("cle-fal").value = clesNavigateur.fal;
+  $("cle-openrouter").value = clesNavigateur.openrouter;
+  $("fournisseur-vision").value = fournisseurVision;
+  $("se-souvenir").checked = sauvegarde.souvenir;
+  $("statut-stockage").textContent = sauvegarde.souvenir
+    ? "Enregistré sur cet appareil."
+    : "Conservé pour cet onglet seulement.";
+  actualiserEtatCles();
+}
+
+function lireChampsReglages() {
+  clesNavigateur.fal = $("cle-fal").value.trim();
+  clesNavigateur.openrouter = $("cle-openrouter").value.trim();
+  fournisseurVision = $("fournisseur-vision").value === "openrouter" ? "openrouter" : "fal";
+  enregistrerReglages();
+  actualiserEtatCles();
+}
+
+function actualiserEtatCles() {
+  if (!$("etat-cle-fal")) { return; }
+  $("etat-cle-fal").textContent = clesNavigateur.fal
+    ? "Dans ce navigateur"
+    : (sante && sante.fal_key_configured ? "Clé du serveur disponible" : "Aucune clé");
+  $("etat-cle-openrouter").textContent = clesNavigateur.openrouter
+    ? "Dans ce navigateur"
+    : "Aucune clé";
+  actualiserCapacites();
+}
+
+function ouvrirReglages() {
+  elementAvantReglages = document.activeElement;
+  $("voile-agents").classList.add("cache");
+  $("panneau-agents").classList.add("cache");
+  $("btn-agents").setAttribute("aria-expanded", "false");
+  $("voile-reglages").classList.remove("cache");
+  $("panneau-reglages").classList.remove("cache");
+  $("btn-reglages").setAttribute("aria-expanded", "true");
+  document.body.classList.add("reglages-ouverts");
+  window.setTimeout(function () { $("cle-fal").focus(); }, 0);
+}
+
+function fermerReglages() {
+  $("voile-reglages").classList.add("cache");
+  $("panneau-reglages").classList.add("cache");
+  $("btn-reglages").setAttribute("aria-expanded", "false");
+  document.body.classList.remove("reglages-ouverts");
+  if (elementAvantReglages && elementAvantReglages.focus) { elementAvantReglages.focus(); }
+}
+
+function ouvrirAgents() {
+  elementAvantReglages = document.activeElement;
+  $("voile-reglages").classList.add("cache");
+  $("panneau-reglages").classList.add("cache");
+  $("btn-reglages").setAttribute("aria-expanded", "false");
+  $("voile-agents").classList.remove("cache");
+  $("panneau-agents").classList.remove("cache");
+  $("btn-agents").setAttribute("aria-expanded", "true");
+  document.body.classList.add("reglages-ouverts");
+  window.setTimeout(function () { $("fermer-agents").focus(); }, 0);
+}
+
+function fermerAgents() {
+  $("voile-agents").classList.add("cache");
+  $("panneau-agents").classList.add("cache");
+  $("btn-agents").setAttribute("aria-expanded", "false");
+  document.body.classList.remove("reglages-ouverts");
+  if (elementAvantReglages && elementAvantReglages.focus) { elementAvantReglages.focus(); }
+}
+
+async function copierBlocAgent(bouton) {
+  var cible = $(bouton.dataset.cible);
+  var statut = $("statut-copie-agents");
+  var texteInitial = bouton.textContent;
+  var zone = null;
+  if (!cible) { return; }
+  occuper(bouton, "Copie…");
+  statut.textContent = "";
+  statut.classList.remove("succes", "echec");
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(cible.textContent.trim());
+    } else {
+      zone = document.createElement("textarea");
+      zone.value = cible.textContent.trim();
+      zone.setAttribute("readonly", "");
+      zone.style.position = "fixed";
+      zone.style.opacity = "0";
+      document.body.appendChild(zone);
+      zone.select();
+      if (!document.execCommand("copy")) { throw new Error("copie refusée"); }
+      document.body.removeChild(zone);
+    }
+    liberer(bouton);
+    bouton.textContent = "Copié ✓";
+    statut.textContent = "Le bloc est dans ton presse-papiers.";
+    statut.classList.add("succes");
+    window.setTimeout(function () { bouton.textContent = texteInitial; }, 1800);
+  } catch (e) {
+    if (zone && zone.parentNode) { zone.parentNode.removeChild(zone); }
+    liberer(bouton);
+    statut.textContent = "La copie a échoué. Sélectionne le bloc et copie-le manuellement.";
+    statut.classList.add("echec");
+  }
+}
+
+function definirStatutCle(provider, message, succes) {
+  var statut = $("statut-cle-" + provider);
+  statut.textContent = message;
+  statut.classList.toggle("succes", succes === true);
+  statut.classList.toggle("echec", succes === false);
+}
+
+async function testerCle(provider) {
+  lireChampsReglages();
+  var cle = clesNavigateur[provider];
+  var bouton = $("tester-cle-" + provider);
+  if (!cle) {
+    definirStatutCle(provider, "Colle d'abord une clé.", false);
+    return;
+  }
+  occuper(bouton, "Test en cours…");
+  definirStatutCle(provider, "Vérification…", null);
+  var r = await api(
+    "/api/keys/test",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: provider }) },
+    provider
+  );
+  liberer(bouton);
+  if (r.injoignable) {
+    definirStatutCle(provider, "Serveur MascotForge injoignable.", false);
+    return;
+  }
+  var message = r.corps && r.corps.message ? r.corps.message : "Le test a échoué.";
+  definirStatutCle(provider, message, r.statut === 200 && r.corps && r.corps.ok === true);
+}
+
+function effacerCle(provider) {
+  clesNavigateur[provider] = "";
+  $("cle-" + provider).value = "";
+  enregistrerReglages();
+  definirStatutCle(provider, "Clé effacée de ce navigateur.", true);
+  actualiserEtatCles();
+}
+
+function basculerVisibiliteCle(bouton) {
+  var champ = $(bouton.dataset.cible);
+  var visible = champ.type === "text";
+  champ.type = visible ? "password" : "text";
+  bouton.setAttribute("aria-label", (visible ? "Afficher" : "Masquer") + " la " + champ.getAttribute("aria-label").toLowerCase());
+}
+
+function libelleEtat(nom) {
+  if (LIBELLES_ETATS[nom]) { return LIBELLES_ETATS[nom]; }
+  if (!nom) { return "Nouvel état"; }
+  return nom.charAt(0).toUpperCase() + nom.slice(1).replace(/-/g, " ");
+}
+
+/* ---------- Navigation de l'assistant ---------- */
+
+function afficherEcran(id) {
+  var ecrans = document.querySelectorAll(".ecran-assistant");
+  for (var i = 0; i < ecrans.length; i++) {
+    ecrans[i].classList.toggle("cache", ecrans[i].id !== id);
+  }
+  var accueil = id === "ecran-accueil";
+  $("progression").classList.toggle("cache", accueil);
+  $("btn-recommencer").classList.toggle("cache", accueil);
+  var etapes = $("progression").querySelectorAll("span[data-ecran]");
+  for (var j = 0; j < etapes.length; j++) {
+    etapes[j].classList.toggle("actif", etapes[j].dataset.ecran === id);
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function actualiserUsageInterface() {
+  var estAgent = usageActuel === "agent";
+  $("pastille-usage").textContent = estAgent ? "Agent IA" : "Site Web";
+  $("resume-usage").textContent = estAgent
+    ? "Elle saura écouter, réfléchir, parler et signaler une erreur."
+    : "Elle saura accueillir, travailler, célébrer et signaler une erreur.";
+  if (presets && presets.presets[usageActuel]) {
+    $("usage").value = usageActuel;
+  }
+}
+
+function choisirUsage(usage) {
+  usageActuel = usage === "site" ? "site" : "agent";
+  if (presets && presets.presets[usageActuel]) {
+    appliquerPreset(usageActuel);
+  }
+  actualiserUsageInterface();
+  afficherEcran("ecran-creation");
+}
+
+function choisirMethode(methode) {
+  $("compteur-cout").classList.toggle(
+    "cache",
+    methode !== "video" && methode !== "image3d"
+  );
+
+  if (methode === "blob") {
+    $("sur-titre-personnalisation").textContent = "Sans clé API et instantané";
+    $("titre-personnalisation").textContent = "Crée un blob à ton image.";
+    $("description-style").textContent = "Choisis sa forme, sa couleur et son expression. Il réagit en direct.";
+    basculerStyle("blob");
+  } else if (methode === "3d") {
+    sourcePersonnage3d = "galerie";
+    $("sur-titre-personnalisation").textContent = "Sans clé API et instantané";
+    $("titre-personnalisation").textContent = "Choisis ton personnage.";
+    $("description-style").textContent = "Essaie ses réactions avant de l'intégrer à ton projet.";
+    basculerStyle("3d");
+    basculerSourcePersonnage3d("galerie");
+  } else if (methode === "image3d") {
+    sourcePersonnage3d = "image";
+    $("sur-titre-personnalisation").textContent = "À partir de ton image";
+    $("titre-personnalisation").textContent = "Transforme-la en personnage 3D.";
+    $("description-style").textContent = "Le modèle dessine une interprétation animée dans le style Wobnimo.";
+    basculerStyle("3d");
+    basculerSourcePersonnage3d("image");
+  } else {
+    $("sur-titre-personnalisation").textContent = "Vidéo IA";
+    $("titre-personnalisation").textContent = "Anime ton personnage.";
+    $("description-style").textContent = "Pars d'une image ou d'une description. Les réactions utiles sont déjà choisies.";
+    basculerStyle("video");
+    $("etape-1").classList.remove("cache");
+    $("etape-2").classList.toggle("cache", !characterId && !jobId);
+    if (presets && presets.presets[usageActuel]) {
+      $("usage").value = usageActuel;
+      appliquerPreset(usageActuel);
+    }
+    actualiserUsageInterface();
+  }
+
+  if (methode === "video" || methode === "image3d") { rafraichirCout(); }
+  afficherEcran("ecran-personnalisation");
+}
 
 /* ---------- Bandeau d'erreur ---------- */
 
@@ -73,10 +415,31 @@ function liberer(bouton) {
 
 /* ---------- Appels API ---------- */
 
-async function api(chemin, options) {
+async function api(chemin, options, clesRequises) {
   var reponse;
+  var requete = Object.assign({}, options || {});
+  if (clesRequises) {
+    var cible = new URL(chemin, window.location.href);
+    if (cible.origin === window.location.origin) {
+      var entetes = new Headers(requete.headers || {});
+      if ((clesRequises === "fal" ||
+          (clesRequises === "vision" && fournisseurVision === "fal")) &&
+          clesNavigateur.fal) {
+        entetes.set("X-Fal-Key", clesNavigateur.fal);
+      }
+      if ((clesRequises === "openrouter" ||
+          (clesRequises === "vision" && fournisseurVision === "openrouter")) &&
+          clesNavigateur.openrouter) {
+        entetes.set("X-OpenRouter-Key", clesNavigateur.openrouter);
+      }
+      if (clesRequises === "vision") {
+        entetes.set("X-Vision-Provider", fournisseurVision);
+      }
+      requete.headers = entetes;
+    }
+  }
   try {
-    reponse = await fetch(chemin, options);
+    reponse = await fetch(chemin, requete);
   } catch (e) {
     return { statut: 0, corps: null, injoignable: true };
   }
@@ -110,18 +473,8 @@ function basculerStyle(style) {
   var estCode = style !== "video";
   styleActuel = style;
   moteurActuel = estCode ? style : null;
-
-  ["etape-1", "etape-2", "etape-3", "etape-4"].forEach(function (id) {
-    $(id).classList.toggle("cache", estCode);
-  });
+  $("parcours-video").classList.toggle("cache", estCode);
   $("code").classList.toggle("cache", !estCode);
-
-  ["video", "blob", "3d"].forEach(function (nom) {
-    var selectionne = nom === style;
-    $("style-" + nom).classList.toggle("actif", selectionne);
-    $("style-" + nom).setAttribute("aria-selected", String(selectionne));
-  });
-
   actualiserDescriptionStyle();
 
   if (!estCode) {
@@ -134,13 +487,16 @@ function basculerStyle(style) {
 function actualiserDescriptionStyle() {
   if (styleActuel === "video") {
     $("description-style").textContent =
-      "Ton image est animée par IA, pour environ 0,25 $ par état.";
+      "Pars d'une image ou d'une description. Les réactions utiles sont déjà choisies.";
   } else if (styleActuel === "3d" && sourcePersonnage3d === "image") {
     $("description-style").textContent =
-      "Ton image sert de référence pour créer un personnage 3D dans le style Wobnimo.";
+      "Le modèle dessine une interprétation animée dans le style Wobnimo.";
+  } else if (styleActuel === "3d") {
+    $("description-style").textContent =
+      "Essaie ses réactions avant de l'intégrer à ton projet.";
   } else {
     $("description-style").textContent =
-      "Gratuit et instantané : la mascotte suit le curseur et utilise les états fixes du moteur.";
+      "Choisis sa forme, sa couleur et son expression. Il réagit en direct.";
   }
 }
 
@@ -166,9 +522,13 @@ function obtenirConfigurationCode(cle) {
   return configurationsCode[cle];
 }
 
-function libelleValeurCode(valeur) {
+function libelleValeurCode(nom, valeur) {
   if (String(valeur) === "true") { return "oui"; }
   if (String(valeur) === "false") { return "non"; }
+  if (LIBELLES_VALEURS[String(valeur)]) { return LIBELLES_VALEURS[String(valeur)]; }
+  if (nom === "character") {
+    return String(valeur).charAt(0).toUpperCase() + String(valeur).slice(1);
+  }
   return String(valeur);
 }
 
@@ -181,8 +541,10 @@ function reinitialiserExportCode() {
 function actualiserDisponibiliteExportCode() {
   var bouton = $("btn-export-code");
   if (bouton.classList.contains("occupe")) { return; }
-  bouton.disabled = moteurActuel === "3d" &&
+  var indisponible = moteurActuel === "3d" &&
     sourcePersonnage3d === "image" && !spec3dTerminee;
+  bouton.disabled = indisponible;
+  $("btn-terminer-code").disabled = indisponible;
 }
 
 function construireFormulaireCode(cle) {
@@ -211,7 +573,7 @@ function construireFormulaireCode(cle) {
     spec.options[nom].forEach(function (valeur) {
       var option = document.createElement("option");
       option.value = String(valeur);
-      option.textContent = libelleValeurCode(valeur);
+      option.textContent = libelleValeurCode(nom, valeur);
       select.appendChild(option);
     });
     if (spec.free_color === nom && /^#[0-9a-f]{6}$/i.test(config[nom])) {
@@ -327,6 +689,15 @@ function actualiserInterfaceSource3d(cle) {
 function basculerSourcePersonnage3d(source) {
   if (source !== "galerie" && source !== "image") { return; }
   sourcePersonnage3d = source;
+  $("compteur-cout").classList.toggle("cache", source !== "image");
+  if (source === "image") {
+    $("sur-titre-personnalisation").textContent = "À partir de ton image";
+    $("titre-personnalisation").textContent = "Transforme-la en personnage 3D.";
+    rafraichirCout();
+  } else {
+    $("sur-titre-personnalisation").textContent = "Sans clé API et instantané";
+    $("titre-personnalisation").textContent = "Choisis ton personnage.";
+  }
   if (source === "galerie") {
     var personnage = obtenirPersonnageGalerie3d();
     if (personnage) { remplacerConfiguration3d("character", personnage); }
@@ -374,7 +745,7 @@ function majFichierPersonnage3d() {
   if (fichier) {
     zone.textContent = "Fichier choisi : " + fichier.name + " (clique pour en changer)";
     zone.classList.add("fichier-choisi");
-    if (!bouton.classList.contains("occupe")) { bouton.disabled = false; }
+    if (!bouton.classList.contains("occupe")) { bouton.disabled = !visionEstDisponible(); }
     majApercuFichier3d(fichier);
   } else {
     zone.textContent = "Clique pour choisir une image (PNG, JPEG ou WebP, 10 Mo max)";
@@ -395,9 +766,12 @@ function afficherResultatPersonnage3d(job) {
   var passes = typeof job.rounds === "number" ? job.rounds : 0;
   var info = $("info-personnage-3d");
   var comparaisons = typeof job.visual_rounds === "number" ? job.visual_rounds : 0;
+  var coutReel = !job.cost_estimated && typeof job.cost_usd === "number"
+    ? ", coût réel : " + formaterMontant(job.cost_usd)
+    : "";
   info.textContent = (job.name || "Personnage 3D") + " est prêt. " + passes +
     " passe" + (passes > 1 ? "s" : "") + " d'écriture, " + comparaisons + " comparaison" +
-    (comparaisons > 1 ? "s" : "") + " avec ton image, coût : " + formaterMontant(job.cost_usd) + ".";
+    (comparaisons > 1 ? "s" : "") + " avec ton image" + coutReel + ".";
   info.classList.remove("cache");
 
   var nombreAvertissements = typeof job.warnings === "number" ? job.warnings : 0;
@@ -423,7 +797,7 @@ function libererBoutonPersonnage3d() {
   var bouton = $("btn-creer-3d");
   if (bouton.classList.contains("occupe")) { liberer(bouton); }
   var input = $("fichier-3d");
-  bouton.disabled = !(input.files && input.files.length > 0);
+  bouton.disabled = !(input.files && input.files.length > 0) || !visionEstDisponible();
 }
 
 function suivrePersonnage3d(id) {
@@ -452,7 +826,7 @@ async function creerPersonnage3d() {
   $("statut-creation-3d").textContent = "Envoi de l'image…";
   var donnees = new FormData();
   donnees.append("file", input.files[0]);
-  var r = await api("/api/engines/3d/from-image", { method: "POST", body: donnees });
+  var r = await api("/api/engines/3d/from-image", { method: "POST", body: donnees }, "vision");
   if (gererErreurReseau(r, "création du personnage 3D")) {
     libererBoutonPersonnage3d();
     $("statut-creation-3d").textContent = "Création interrompue.";
@@ -535,7 +909,7 @@ function construireControlesEtatsCode(etats) {
   etats.forEach(function (etat) {
     var bouton = document.createElement("button");
     bouton.type = "button";
-    bouton.textContent = etat;
+    bouton.textContent = libelleEtat(etat);
     bouton.dataset.etat = etat;
     bouton.setAttribute("aria-pressed", String(etat === initial));
     bouton.addEventListener("click", function () {
@@ -568,13 +942,18 @@ function programmerApercuCode() {
   delaiApercuCode = setTimeout(afficherApercuCode, 250);
 }
 
-function afficherApercuCode() {
-  if (styleActuel === "video" || !moteurActuel || !moteurs) { return; }
+function obtenirManifestCode() {
+  if (!moteurActuel || !moteurs) { return ""; }
   var config = obtenirConfigurationCode(moteurActuel);
   var params = new URLSearchParams();
   Object.keys(config).forEach(function (nom) { params.append(nom, config[nom]); });
-  var manifest = "/api/engines/" + encodeURIComponent(moteurActuel) +
+  return "/api/engines/" + encodeURIComponent(moteurActuel) +
     "/manifest.json?" + params.toString();
+}
+
+function afficherApercuCode() {
+  if (styleActuel === "video" || !moteurActuel || !moteurs) { return; }
+  var manifest = obtenirManifestCode();
   var scene = $("scene-code");
   scene.innerHTML = "";
   var avatar = document.createElement("mascot-avatar");
@@ -586,6 +965,95 @@ function afficherApercuCode() {
   });
   avatarCodeActuel = avatar;
   scene.appendChild(avatar);
+}
+
+function definirCodeIntegration(manifest) {
+  codeIntegrationActuel =
+    "<mascot-avatar id=\"ma-mascotte\" manifest=\"" + manifest +
+    "\" label=\"Mon assistant\"></mascot-avatar>\n" +
+    "<script src=\"./mascot/mascot.js\"></" + "script>";
+  $("code-integration").textContent = codeIntegrationActuel;
+  $("retour-copie").textContent = "";
+}
+
+function afficherFinalCode() {
+  var manifest = obtenirManifestCode();
+  if (!manifest || !moteurActuel || !moteurs) { return; }
+  var scene = $("scene");
+  scene.innerHTML = "";
+  var avatar = document.createElement("mascot-avatar");
+  avatar.setAttribute("manifest", manifest);
+  avatar.setAttribute("sleep-after", "0");
+  avatar.setAttribute("label", "Mascotte prête à intégrer");
+  scene.appendChild(avatar);
+
+  var etats = moteurs[moteurActuel].states;
+  var initial = etats.indexOf("idle") !== -1 ? "idle" : etats[0];
+  var controles = $("controles-etats");
+  controles.innerHTML = "";
+  etats.forEach(function (etat) {
+    var bouton = document.createElement("button");
+    bouton.type = "button";
+    bouton.textContent = libelleEtat(etat);
+    bouton.dataset.etat = etat;
+    bouton.setAttribute("aria-pressed", String(etat === initial));
+    bouton.addEventListener("click", function () { avatar.play(etat); });
+    controles.appendChild(bouton);
+  });
+  avatar.addEventListener("statechange", function (ev) {
+    var boutons = controles.querySelectorAll("button");
+    for (var i = 0; i < boutons.length; i++) {
+      boutons[i].setAttribute("aria-pressed", String(boutons[i].dataset.etat === ev.detail.to));
+    }
+  });
+
+  $("bloc-suivi").classList.add("cache");
+  $("bloc-export-video").classList.add("cache");
+  $("bloc-export-code").classList.remove("cache");
+  $("titre-final").textContent = "Présente-la à ton public.";
+  $("sous-titre-final").textContent = "Teste ses réactions, puis copie le code dans ton projet.";
+  definirCodeIntegration("./mascot/manifest.json");
+  afficherEcran("ecran-final");
+}
+
+function terminerMascotteCode() {
+  if (moteurActuel === "3d" && sourcePersonnage3d === "image" && !spec3dTerminee) {
+    afficherBandeau("Crée d'abord le personnage 3D à partir de ton image.", "avertissement");
+    return;
+  }
+  afficherFinalCode();
+}
+
+async function copierCodeIntegration() {
+  if (!codeIntegrationActuel) { return; }
+  var bouton = $("btn-copier-code");
+  var texteInitial = bouton.textContent;
+  var zone = null;
+  occuper(bouton, "Copie…");
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(codeIntegrationActuel);
+    } else {
+      zone = document.createElement("textarea");
+      zone.value = codeIntegrationActuel;
+      zone.setAttribute("readonly", "");
+      zone.style.position = "fixed";
+      zone.style.opacity = "0";
+      document.body.appendChild(zone);
+      zone.select();
+      if (!document.execCommand("copy")) { throw new Error("copie refusée"); }
+      document.body.removeChild(zone);
+    }
+    liberer(bouton);
+    bouton.textContent = "Copié ✓";
+    $("retour-copie").textContent = "Le code est dans ton presse-papiers.";
+    setTimeout(function () { bouton.textContent = texteInitial; }, 1800);
+  } catch (e) {
+    if (zone && zone.parentNode) { zone.parentNode.removeChild(zone); }
+    liberer(bouton);
+    $("retour-copie").textContent = "La copie a échoué. Sélectionne le code manuellement.";
+    afficherBandeau("La copie a échoué. Sélectionne le code, puis copie-le manuellement.", "erreur");
+  }
 }
 
 async function exporterDossierCode() {
@@ -614,22 +1082,6 @@ async function exporterDossierCode() {
   var lien = $("lien-telechargement-code");
   lien.href = r.corps.download_url;
   lien.classList.remove("cache");
-}
-
-/* ---------- Verrouillage des étapes ---------- */
-
-function deverrouiller(idSection) {
-  var section = $(idSection);
-  section.classList.remove("verrouillee");
-  var boutons = section.querySelectorAll("button");
-  for (var i = 0; i < boutons.length; i++) { boutons[i].disabled = false; }
-}
-
-function verrouiller(idSection) {
-  var section = $(idSection);
-  section.classList.add("verrouillee");
-  var boutons = section.querySelectorAll("button");
-  for (var i = 0; i < boutons.length; i++) { boutons[i].disabled = true; }
 }
 
 /* ---------- Compteur de coût ---------- */
@@ -661,6 +1113,62 @@ async function rafraichirCout() {
 
 /* ---------- Santé au chargement ---------- */
 
+function falEstDisponible() {
+  return !!clesNavigateur.fal || !sante || sante.fal_key_configured === true;
+}
+
+function visionEstDisponible() {
+  if (fournisseurVision === "openrouter") { return !!clesNavigateur.openrouter; }
+  return falEstDisponible();
+}
+
+function actualiserCapacites() {
+  if (!sante) { return; }
+  var message = $("message-capacite-fal");
+  var falDisponible = falEstDisponible();
+  var visionDisponible = visionEstDisponible();
+  var explications = [];
+  if (!falDisponible) { explications.push("Pour la vidéo IA, colle ta clé fal.ai dans Réglages."); }
+  if (!visionDisponible) {
+    explications.push(
+      "Pour la version 3D, colle ta clé " +
+      (fournisseurVision === "openrouter" ? "OpenRouter" : "fal.ai") + " dans Réglages."
+    );
+  }
+  if (explications.length) {
+    $("texte-capacite-fal").textContent = explications.join(" ");
+    message.classList.remove("cache");
+  } else {
+    $("texte-capacite-fal").textContent = "";
+    message.classList.add("cache");
+  }
+
+  if (visionDisponible) {
+    $("info-capacite-3d").textContent =
+      "Lecture par " +
+      (fournisseurVision === "openrouter" ? "OpenRouter direct" : "fal.ai") +
+      ". Node 18 ou plus est aussi requis.";
+  } else {
+    $("info-capacite-3d").textContent =
+      "Indisponible : colle ta clé " +
+      (fournisseurVision === "openrouter" ? "OpenRouter" : "fal.ai") +
+      " dans Réglages. Node 18 ou plus est aussi requis.";
+  }
+  $("ouvrir-reglages-3d").classList.toggle("cache", visionDisponible);
+  $("btn-prompt").disabled = !falDisponible;
+  var fichierVideo = $("fichier").files && $("fichier").files.length > 0;
+  $("btn-upload").disabled = !falDisponible || !fichierVideo;
+  majFichierPersonnage3d();
+  majEstimation();
+
+  if (!falDisponible && !jobId) {
+    $("statut-job").textContent = "Colle ta clé fal.ai dans Réglages pour lancer la vidéo IA.";
+  } else if (!sante.ffmpeg_available && !jobId) {
+    $("statut-job").textContent =
+      "Installe ffmpeg sur le serveur pour obtenir un fond transparent. La génération reste disponible.";
+  }
+}
+
 async function verifierSante() {
   var r = await api("/api/health");
   if (gererErreurReseau(r, "vérification de santé")) { return; }
@@ -671,19 +1179,8 @@ async function verifierSante() {
     );
     return;
   }
-  if (!r.corps.fal_key_configured) {
-    afficherBandeau(
-      "Clé FAL non configurée : la génération est désactivée tant que la clé " +
-      "n'est pas ajoutée côté backend. Le studio reste consultable.",
-      "avertissement"
-    );
-  } else if (!r.corps.ffmpeg_available) {
-    afficherBandeau(
-      "ffmpeg est introuvable côté backend : les mascottes garderont leur fond. " +
-      "Installe ffmpeg pour obtenir un fond transparent.",
-      "avertissement"
-    );
-  }
+  sante = r.corps;
+  actualiserEtatCles();
 }
 
 /* ---------- Étape 1 : onglets ---------- */
@@ -695,6 +1192,7 @@ function basculerOnglet(versPrompt) {
   $("onglet-prompt").setAttribute("aria-selected", String(versPrompt));
   $("panneau-upload").classList.toggle("cache", versPrompt);
   $("panneau-prompt").classList.toggle("cache", !versPrompt);
+  majEstimation();
 }
 
 /* ---------- Étape 1 : personnage ---------- */
@@ -722,13 +1220,13 @@ function personnagePret(id, imageUrl, origine) {
   img.src = imageUrl;
   img.alt = "Aperçu du personnage (" + origine + ")";
   $("apercu-personnage").classList.remove("cache");
-  $("info-personnage").textContent =
-    "Personnage prêt (" + origine + "). Choisis ses états à l'étape 2.";
+  $("info-personnage").textContent = "Ton personnage est prêt. Tu peux maintenant lui donner vie.";
   reinitialiserJob();
-  deverrouiller("etape-2");
+  $("etape-2").classList.remove("cache");
   $("btn-relancer").classList.add("cache");
   majEstimation();
   cacherBandeau();
+  $("etape-2").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function reinitialiserJob() {
@@ -739,8 +1237,7 @@ function reinitialiserJob() {
   $("liste-etats").innerHTML = "";
   $("scene").innerHTML = "";
   $("controles-etats").innerHTML = "";
-  verrouiller("etape-3");
-  verrouiller("etape-4");
+  $("bloc-suivi").classList.add("cache");
   var lien = $("lien-telechargement");
   lien.classList.add("cache");
   lien.removeAttribute("href");
@@ -757,14 +1254,14 @@ async function creerDepuisUpload() {
   occuper(bouton, "Envoi en cours…");
   var donnees = new FormData();
   donnees.append("file", input.files[0]);
-  var r = await api("/api/character/from-upload", { method: "POST", body: donnees });
+  var r = await api("/api/character/from-upload", { method: "POST", body: donnees }, "fal");
   liberer(bouton);
-  if (gererErreurReseau(r, "upload de l'image")) { return; }
+  if (gererErreurReseau(r, "envoi de l'image")) { return; }
   if (r.statut !== 200 || !r.corps || !r.corps.character_id) {
-    afficherBandeau(messageErreur(r, "L'upload a échoué"), "erreur");
+    afficherBandeau(messageErreur(r, "L'envoi de l'image a échoué"), "erreur");
     return;
   }
-  personnagePret(r.corps.character_id, r.corps.image_url, "image uploadée");
+  personnagePret(r.corps.character_id, r.corps.image_url, "image choisie");
 }
 
 async function creerDepuisPrompt() {
@@ -781,7 +1278,7 @@ async function creerDepuisPrompt() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prompt: texte })
-  });
+  }, "fal");
   liberer(bouton);
   if (gererErreurReseau(r, "génération du personnage")) { return; }
   if (r.statut !== 200 || !r.corps || !r.corps.character_id) {
@@ -789,7 +1286,7 @@ async function creerDepuisPrompt() {
     return;
   }
   rafraichirCout();
-  personnagePret(r.corps.character_id, r.corps.image_url, "prompt");
+  personnagePret(r.corps.character_id, r.corps.image_url, "description");
 }
 
 /* ---------- Étape 2 : éditeur d'états ---------- */
@@ -806,8 +1303,11 @@ async function chargerPresets() {
     option.textContent = presets.presets[cle].label;
     select.appendChild(option);
   });
-  select.value = presets.default;
-  appliquerPreset(presets.default);
+  var selection = presets.presets[usageActuel] ? usageActuel : presets.default;
+  usageActuel = selection;
+  select.value = selection;
+  appliquerPreset(selection);
+  actualiserUsageInterface();
 }
 
 function appliquerPreset(cle) {
@@ -822,26 +1322,32 @@ function construireEditeur() {
   liste.innerHTML = "";
   etatsEdites.forEach(function (etat, index) {
     var li = document.createElement("li");
-
-    var nom = document.createElement("input");
-    nom.type = "text";
-    nom.value = etat.name;
-    nom.className = "champ-nom";
-    nom.setAttribute("aria-label", "Nom de l'état " + (index + 1));
-    nom.placeholder = "nom";
-    nom.addEventListener("input", function () {
-      etat.name = nom.value.trim().toLowerCase();
-      nom.classList.toggle("invalide", !NOM_VALIDE.test(etat.name));
-      majEstimation();
-    });
+    var nom;
+    if (LIBELLES_ETATS[etat.name]) {
+      nom = document.createElement("span");
+      nom.className = "nom-etat-fr";
+      nom.textContent = libelleEtat(etat.name);
+    } else {
+      nom = document.createElement("input");
+      nom.type = "text";
+      nom.value = etat.name;
+      nom.className = "champ-nom";
+      nom.setAttribute("aria-label", "Nom du nouvel état " + (index + 1));
+      nom.placeholder = "Nom du nouvel état";
+      nom.addEventListener("input", function () {
+        etat.name = nom.value.trim().toLowerCase();
+        nom.classList.toggle("invalide", !NOM_VALIDE.test(etat.name));
+        majEstimation();
+      });
+    }
 
     var mouvement = document.createElement("input");
     mouvement.type = "text";
     mouvement.value = etat.prompt;
     mouvement.className = "champ-mouvement";
     mouvement.maxLength = 300;
-    mouvement.setAttribute("aria-label", "Mouvement de l'état " + (index + 1));
-    mouvement.placeholder = "mouvement, en anglais : waving hello, jumping…";
+    mouvement.setAttribute("aria-label", "Description du mouvement pour " + libelleEtat(etat.name));
+    mouvement.placeholder = "Décris son mouvement";
     mouvement.addEventListener("input", function () {
       etat.prompt = mouvement.value;
       majEstimation();
@@ -857,7 +1363,7 @@ function construireEditeur() {
       majEstimation();
     });
     boucle.appendChild(caseBoucle);
-    boucle.appendChild(document.createTextNode(" Boucle"));
+    boucle.appendChild(document.createTextNode(" En boucle"));
 
     var retirer = document.createElement("button");
     retirer.type = "button";
@@ -895,10 +1401,10 @@ function problemeEtats() {
   var vus = {};
   for (var i = 0; i < etatsEdites.length; i++) {
     var e = etatsEdites[i];
-    if (!NOM_VALIDE.test(e.name)) { return "Nom invalide : minuscules, chiffres et tirets, en commençant par une lettre."; }
-    if (vus[e.name]) { return "L'état « " + e.name + " » apparaît deux fois."; }
+    if (!NOM_VALIDE.test(e.name)) { return "Donne un nom simple au nouvel état : lettres, chiffres et tirets."; }
+    if (vus[e.name]) { return "L'état « " + libelleEtat(e.name) + " » apparaît deux fois."; }
     vus[e.name] = true;
-    if (!e.prompt.trim()) { return "Décris le mouvement de « " + e.name + " »."; }
+    if (!e.prompt.trim()) { return "Décris le mouvement de « " + libelleEtat(e.name) + " »."; }
   }
   if (!etatsEdites.some(function (e) { return e.loop; })) {
     return "Garde au moins un état en boucle : la mascotte le joue au repos.";
@@ -909,16 +1415,22 @@ function problemeEtats() {
 function majEstimation() {
   var probleme = problemeEtats();
   var cible = $("estimation");
+  var prix = presets ? etatsEdites.length * presets.cost_per_state_usd : NaN;
   if (probleme) {
     cible.textContent = probleme;
     cible.classList.add("alerte");
   } else {
-    var prix = presets ? etatsEdites.length * presets.cost_per_state_usd : NaN;
-    cible.textContent = etatsEdites.length + " état(s), environ " + formaterMontant(prix);
+    cible.textContent = etatsEdites.length + " réaction" + (etatsEdites.length > 1 ? "s" : "") + " choisie" +
+      (etatsEdites.length > 1 ? "s" : "") + ".";
     cible.classList.remove("alerte");
   }
+  if (!$("btn-generer").classList.contains("occupe") && !isNaN(prix)) {
+    $("btn-generer").textContent = etatsEdites.length === 1
+      ? "Générer 1 état, environ " + formaterMontant(prix)
+      : "Générer les " + etatsEdites.length + " états, environ " + formaterMontant(prix);
+  }
   if (characterId && !$("btn-generer").classList.contains("occupe") && !intervallePoll) {
-    $("btn-generer").disabled = !!probleme;
+    $("btn-generer").disabled = !!probleme || !falEstDisponible();
   }
 }
 
@@ -933,7 +1445,7 @@ function construireListeEtats(noms) {
     li.setAttribute("data-statut", "queued");
     var nom = document.createElement("span");
     nom.className = "nom-etat";
-    nom.textContent = nomEtat;
+    nom.textContent = libelleEtat(nomEtat);
     var indicateur = document.createElement("span");
     indicateur.className = "indicateur";
     var puce = document.createElement("span");
@@ -991,7 +1503,7 @@ async function lancerGeneration() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ character_id: characterId, states: etatsEdites })
-  });
+  }, "fal");
   liberer(bouton);
   if (gererErreurReseau(r, "lancement de la génération")) { return; }
   if (r.statut !== 200 || !r.corps || !r.corps.job_id) {
@@ -1017,7 +1529,11 @@ async function relancerEchecs() {
   if (!jobId) { return; }
   var bouton = $("btn-relancer");
   occuper(bouton, "Relance…");
-  var r = await api("/api/jobs/" + encodeURIComponent(jobId) + "/retry", { method: "POST" });
+  var r = await api(
+    "/api/jobs/" + encodeURIComponent(jobId) + "/retry",
+    { method: "POST" },
+    "fal"
+  );
   liberer(bouton);
   if (gererErreurReseau(r, "relance des états")) { return; }
   if (r.statut !== 200) {
@@ -1038,7 +1554,8 @@ async function regenererEtat(nom, bouton) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(etat ? { prompt: etat.prompt } : {})
-    }
+    },
+    "fal"
   );
   liberer(bouton);
   if (gererErreurReseau(r, "régénération de l'état")) { return; }
@@ -1084,17 +1601,15 @@ async function actualiserJob() {
   if (job.status === "done") {
     arreterPoll();
     $("statut-job").textContent = "Génération terminée.";
-    $("btn-generer").disabled = !characterId || !!problemeEtats();
-    $("btn-generer").textContent = "Générer à nouveau";
+    majEstimation();
     $("btn-relancer").classList.add("cache");
     afficherApercu(job);
-    deverrouiller("etape-3");
-    deverrouiller("etape-4");
+    afficherEcran("ecran-final");
     rafraichirCout();
   } else if (job.status === "failed") {
     arreterPoll();
     $("statut-job").textContent = "Des états ont échoué : le détail s'affiche sous chacun.";
-    $("btn-generer").disabled = !characterId || !!problemeEtats();
+    majEstimation();
     $("btn-relancer").classList.remove("cache");
     $("btn-relancer").disabled = false;
     rafraichirCout();
@@ -1117,12 +1632,18 @@ function afficherApercu(job) {
   scene.appendChild(avatar);
 
   var suivi = job.states.look && job.states.look.kind === "look" ? job.states.look : null;
-  var prixSuivi = presets ? " (" + formaterMontant(presets.look_cost_usd) + ")" : "";
+  var prixSuivi = presets ? ", environ " + formaterMontant(presets.look_cost_usd) : "";
   $("btn-suivi").textContent =
     (suivi && suivi.status === "done" ? "Refaire le suivi du curseur" : "Ajouter le suivi du curseur") + prixSuivi;
   $("suivi-texte").textContent = suivi && suivi.status === "done"
     ? "Suivi du curseur actif : bouge la souris autour de la page, la tête la suit au repos."
     : "Suivi du curseur : au repos, la tête regarde vers la souris (clip de 8 secondes).";
+  $("bloc-suivi").classList.remove("cache");
+  $("bloc-export-video").classList.remove("cache");
+  $("bloc-export-code").classList.add("cache");
+  $("titre-final").textContent = "Présente-la à ton public.";
+  $("sous-titre-final").textContent = "Teste ses réactions, puis copie le code dans ton projet.";
+  definirCodeIntegration("./mascot/manifest.json");
 
   var controles = $("controles-etats");
   controles.innerHTML = "";
@@ -1130,7 +1651,8 @@ function afficherApercu(job) {
     if (job.states[nom].kind === "look") { return; } // pas un état jouable
     var bouton = document.createElement("button");
     bouton.type = "button";
-    bouton.textContent = nom;
+    bouton.textContent = libelleEtat(nom);
+    bouton.dataset.etat = nom;
     bouton.setAttribute("aria-pressed", String(nom === job.default_state));
     bouton.addEventListener("click", function () { avatar.play(nom); });
     controles.appendChild(bouton);
@@ -1138,7 +1660,7 @@ function afficherApercu(job) {
   avatar.addEventListener("statechange", function (ev) {
     var boutons = controles.querySelectorAll("button");
     for (var i = 0; i < boutons.length; i++) {
-      boutons[i].setAttribute("aria-pressed", String(boutons[i].textContent === ev.detail.to));
+      boutons[i].setAttribute("aria-pressed", String(boutons[i].dataset.etat === ev.detail.to));
     }
   });
 }
@@ -1151,7 +1673,7 @@ async function ajouterSuivi() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: "{}"
-  });
+  }, "fal");
   liberer(bouton);
   if (gererErreurReseau(r, "ajout du suivi du curseur")) { return; }
   if (r.statut !== 200) {
@@ -1165,7 +1687,7 @@ async function ajouterSuivi() {
 
 function changerFond(classe, idScene) {
   var scene = $(idScene || "scene");
-  scene.classList.remove("fond-damier", "fond-clair", "fond-sombre");
+  scene.classList.remove("fond-creme", "fond-damier", "fond-clair", "fond-sombre");
   scene.classList.add(classe);
 }
 
@@ -1192,18 +1714,72 @@ async function exporterDossier() {
 function reprendreJobDepuisUrl() {
   var trouve = /job=([a-f0-9]+)/.exec(location.hash);
   if (!trouve) { return; }
+  $("compteur-cout").classList.remove("cache");
   basculerStyle("video");
-  deverrouiller("etape-2");
+  $("sur-titre-personnalisation").textContent = "Vidéo IA";
+  $("titre-personnalisation").textContent = "Ta mascotte prend vie.";
+  $("description-style").textContent = "Tu peux fermer cette page et revenir avec la même adresse.";
+  $("etape-1").classList.add("cache");
+  $("etape-2").classList.remove("cache");
+  $("statut-job").textContent = "Reprise du suivi…";
   $("btn-generer").disabled = true;
+  afficherEcran("ecran-personnalisation");
   suivreJob(trouve[1]);
 }
 
 /* ---------- Initialisation ---------- */
 
 function init() {
-  $("style-video").addEventListener("click", function () { basculerStyle("video"); });
-  $("style-blob").addEventListener("click", function () { basculerStyle("blob"); });
-  $("style-3d").addEventListener("click", function () { basculerStyle("3d"); });
+  chargerReglages();
+  $("btn-agents").addEventListener("click", ouvrirAgents);
+  $("fermer-agents").addEventListener("click", fermerAgents);
+  $("voile-agents").addEventListener("click", fermerAgents);
+  document.querySelectorAll(".bouton-copie-agent").forEach(function (bouton) {
+    bouton.addEventListener("click", function () { copierBlocAgent(bouton); });
+  });
+  $("btn-reglages").addEventListener("click", ouvrirReglages);
+  $("fermer-reglages").addEventListener("click", fermerReglages);
+  $("voile-reglages").addEventListener("click", fermerReglages);
+  $("ouvrir-reglages-capacite").addEventListener("click", ouvrirReglages);
+  $("ouvrir-reglages-3d").addEventListener("click", ouvrirReglages);
+  $("cle-fal").addEventListener("input", lireChampsReglages);
+  $("cle-openrouter").addEventListener("input", lireChampsReglages);
+  $("fournisseur-vision").addEventListener("change", lireChampsReglages);
+  $("se-souvenir").addEventListener("change", enregistrerReglages);
+  $("tester-cle-fal").addEventListener("click", function () { testerCle("fal"); });
+  $("tester-cle-openrouter").addEventListener("click", function () { testerCle("openrouter"); });
+  $("effacer-cle-fal").addEventListener("click", function () { effacerCle("fal"); });
+  $("effacer-cle-openrouter").addEventListener("click", function () { effacerCle("openrouter"); });
+  document.querySelectorAll(".afficher-secret").forEach(function (bouton) {
+    bouton.addEventListener("click", function () { basculerVisibiliteCle(bouton); });
+  });
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape" && !$("panneau-agents").classList.contains("cache")) {
+      fermerAgents();
+    } else if (ev.key === "Escape" && !$("panneau-reglages").classList.contains("cache")) {
+      fermerReglages();
+    }
+  });
+
+  $("choix-agent").addEventListener("click", function () { choisirUsage("agent"); });
+  $("choix-site").addEventListener("click", function () { choisirUsage("site"); });
+  $("btn-methode-3d").addEventListener("click", function () { choisirMethode("3d"); });
+  $("btn-methode-blob").addEventListener("click", function () { choisirMethode("blob"); });
+  $("btn-methode-video").addEventListener("click", function () {
+    if (!falEstDisponible()) { ouvrirReglages(); return; }
+    choisirMethode("video");
+  });
+  $("btn-methode-image3d").addEventListener("click", function () {
+    if (!visionEstDisponible()) { ouvrirReglages(); return; }
+    choisirMethode("image3d");
+  });
+  $("btn-accueil").addEventListener("click", function () { afficherEcran("ecran-accueil"); });
+  $("btn-recommencer").addEventListener("click", function () { afficherEcran("ecran-accueil"); });
+  $("retour-accueil").addEventListener("click", function () { afficherEcran("ecran-accueil"); });
+  $("retour-creation").addEventListener("click", function () { afficherEcran("ecran-creation"); });
+  $("retour-personnalisation").addEventListener("click", function () {
+    afficherEcran("ecran-personnalisation");
+  });
   $("onglet-3d-galerie").addEventListener("click", function () {
     basculerSourcePersonnage3d("galerie");
   });
@@ -1230,10 +1806,10 @@ function init() {
     if (input.files && input.files.length > 0) {
       zone.textContent = "Fichier choisi : " + input.files[0].name + " (clique pour en changer)";
       zone.classList.add("fichier-choisi");
-      $("btn-upload").disabled = false;
+      $("btn-upload").disabled = !falEstDisponible();
       majApercuFichier(input.files[0]);
     } else {
-      zone.textContent = "Clique pour choisir une image (PNG détouré conseillé pour un fond transparent, 10 Mo max)";
+      zone.textContent = "Choisis ton image · PNG détouré conseillé · 10 Mo max";
       zone.classList.remove("fichier-choisi");
       $("btn-upload").disabled = true;
       majApercuFichier(null);
@@ -1248,10 +1824,16 @@ function init() {
 
   $("btn-upload").addEventListener("click", creerDepuisUpload);
   $("btn-prompt").addEventListener("click", creerDepuisPrompt);
-  $("usage").addEventListener("change", function () { appliquerPreset($("usage").value); });
+  $("usage").addEventListener("change", function () {
+    usageActuel = $("usage").value;
+    appliquerPreset(usageActuel);
+    actualiserUsageInterface();
+  });
   $("btn-ajouter-etat").addEventListener("click", ajouterEtat);
   $("btn-generer").addEventListener("click", lancerGeneration);
   $("btn-relancer").addEventListener("click", relancerEchecs);
+  $("btn-terminer-code").addEventListener("click", terminerMascotteCode);
+  $("btn-copier-code").addEventListener("click", copierCodeIntegration);
   $("btn-export").addEventListener("click", exporterDossier);
   $("btn-export-code").addEventListener("click", exporterDossierCode);
   $("btn-suivi").addEventListener("click", ajouterSuivi);
@@ -1260,13 +1842,9 @@ function init() {
     var fond = ev.target.dataset && ev.target.dataset.fond;
     if (fond) { changerFond(fond); }
   });
-  $("controles-fond-code").addEventListener("click", function (ev) {
-    var fond = ev.target.dataset && ev.target.dataset.fond;
-    if (fond) { changerFond(fond, "scene-code"); }
-  });
 
+  afficherEcran("ecran-accueil");
   verifierSante();
-  rafraichirCout();
   chargerMoteurs();
   chargerPresets().then(reprendreJobDepuisUrl);
 }

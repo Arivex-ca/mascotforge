@@ -65,8 +65,9 @@ Pipeline :
 - ffmpeg et ffprobe dans le PATH (ou `MASCOTFORGE_FFMPEG`). Sans eux, la
   génération marche mais les mascottes gardent leur fond vert ; `GET /api/health`
   l'indique.
-- Une clé **fal.ai** dans `FAL_KEY` (voir `.env.example`). Sans elle, les routes
-  de génération répondent `503` avec un message clair.
+- Une clé **fal.ai** collée dans les Réglages du studio. `FAL_KEY` reste un
+  repli pratique pour un serveur local. Sans clé disponible, les routes de
+  génération répondent `503` avec un message clair.
 
 ## Installation
 
@@ -82,17 +83,41 @@ cp .env.example .env                        # puis renseigne FAL_KEY
 .venv/bin/python -m uvicorn backend.main:app --port 8766 --env-file .env
 ```
 
-`--env-file` charge `FAL_KEY` et les réglages depuis `.env` (le backend ne lit
-que les variables d'environnement).
+`--env-file` charge `FAL_KEY` et les réglages locaux depuis `.env`. Les clés
+propres aux utilisateurs arrivent par les en-têtes dédiés.
 
 - Studio : `http://localhost:8766/`
 - Widget et démo : `http://localhost:8766/widget/`
 
+## Réglages et sécurité des clés
+
+Le bouton Réglages du studio accepte une clé fal.ai et, en option, une clé
+OpenRouter. Sans la case « Se souvenir sur cet appareil », le studio utilise
+`sessionStorage`. Avec la case, il utilise `localStorage`. Tous les accès à ces
+stockages ont un repli en mémoire si le navigateur les bloque.
+
+Le navigateur envoie la clé utile dans un en-tête, `X-Fal-Key` ou
+`X-OpenRouter-Key`, uniquement lors d'un appel qui en a besoin. Le fournisseur
+de lecture des images 3D passe dans `X-Vision-Provider: fal|openrouter`. Une clé
+ne passe jamais dans une URL ou un paramètre de requête. Le serveur la garde
+dans le contexte de la requête et des tâches qu'elle lance. Il ne l'écrit ni
+dans les jobs, ni dans `data/`, ni dans les logs ou les réponses.
+
+`FAL_KEY` sert de repli local quand `X-Fal-Key` manque. `GET /api/health`
+continue donc à décrire seulement cette clé du serveur. Le studio affiche
+séparément l'état de la clé présente dans le navigateur.
+
+Le bouton Tester ne lance aucune génération. OpenRouter vérifie la clé avec
+`GET https://openrouter.ai/api/v1/key`. fal.ai utilise l'appel d'obtention du
+jeton de stockage de `fal-client`, sans envoyer de fichier et sans inférence.
+
 ## Pour les agents
 
-La CLI et le serveur MCP utilisent l'API existante. Le serveur MascotForge
-garde la clé fal.ai, le plafond mensuel, les coûts et les créations. Configure
-son adresse avec `MASCOTFORGE_URL`, par défaut `http://localhost:8766`.
+La CLI et le serveur MCP utilisent l'API existante. Configure son adresse avec
+`MASCOTFORGE_URL`, par défaut `http://localhost:8766`. Pour fournir les clés au
+client sans les placer dans l'URL ou dans sa sortie, utilise
+`MASCOTFORGE_FAL_KEY` et `MASCOTFORGE_OPENROUTER_KEY`. Le client les transmet
+dans les deux en-têtes dédiés.
 
 ### CLI
 
@@ -187,6 +212,7 @@ Configuration Cursor dans `.cursor/mcp.json` :
 | Méthode | Route | Description |
 |---|---|---|
 | GET | `/api/health` | `{"ok", "fal_key_configured", "ffmpeg_available"}` |
+| POST | `/api/keys/test` | `{"provider":"fal"|"openrouter"}` avec la clé en en-tête, puis `{"ok", "message"}` |
 | GET | `/api/presets` | presets d'états, coût par état, nombre max d'états |
 | POST | `/api/character/from-prompt` | `{"prompt"}` -> `{"character_id", "image_url"}` (429 si plafond) |
 | POST | `/api/character/from-upload` | multipart `file`, 10 Mo max -> `{"character_id", "image_url"}` |
@@ -207,6 +233,10 @@ Configuration Cursor dans `.cursor/mcp.json` :
 Les messages d'erreur sont en français (champ `detail`), sans em dash. Les
 erreurs de fal.ai ou de ffmpeg restent dans les logs du serveur ; l'API ne
 renvoie qu'un message propre.
+
+Les routes payantes acceptent `X-Fal-Key`. La création 3D depuis une image
+accepte aussi `X-OpenRouter-Key` et `X-Vision-Provider`. Aucun secret n'est
+accepté dans une URL ou dans un paramètre de requête.
 
 ## Modèles fal.ai
 
@@ -277,11 +307,14 @@ Provenance, versions et empreintes des moteurs : `engines/README.md`.
 Dans le style 3D, l'onglet « Depuis ton image » crée un personnage Wobnimo sur
 mesure :
 
-1. L'image part sur le stockage fal.ai.
+1. Avec fal.ai, l'image part sur son stockage. Avec OpenRouter direct, le
+   serveur convertit l'image en data URL base64 en mémoire et ne l'envoie pas
+   au stockage fal.ai.
 2. Un modèle qui lit les images (`MASCOTFORGE_SPEC_MODEL`, défaut
-   `anthropic/claude-sonnet-5.5`, appelé via l'endpoint fal.ai
-   `openrouter/router/vision`) écrit la fiche du personnage en JSON, en suivant
-   le guide de Wobnimo embarqué dans `engines/wobnimo/skill/`.
+   `anthropic/claude-sonnet-5.5`) écrit la fiche du personnage en JSON, en
+   suivant le guide de Wobnimo embarqué dans `engines/wobnimo/skill/`. Le mode
+   fal.ai utilise `openrouter/router/vision`. Le mode OpenRouter appelle
+   directement `/api/v1/chat/completions` avec le raisonnement activé.
 3. Le vérificateur de Wobnimo (`engines/wobnimo/dist/cli.js`, lancé avec Node 18
    ou plus) mesure la vraie forme 3D. Ses erreurs et leurs corrections exactes
    repartent au modèle, en 3 passes au plus.
@@ -295,15 +328,17 @@ mesure :
 5. La fiche validée s'affiche dans le widget (`"engine_spec"` du manifest) et
    part dans l'export.
 
-Coût : le coût réel renvoyé par fal.ai à chaque appel, environ 0,15 à 0,60 $ par
-personnage selon le nombre de passes ; 1 $ est réservé sous le plafond pendant
-la création. Le résultat reste une interprétation dans le style Wobnimo : au
-repos, les yeux de l'écran LED restent ceux du moteur.
+Coût : le coût réel renvoyé par le fournisseur à chaque appel, environ 0,15 à
+0,60 $ par personnage selon le nombre de passes ; 1 $ est réservé sous le
+plafond pendant la création. OpenRouter renvoie normalement `usage.cost`. Si ce
+champ manque, MascotForge estime le coût avec les jetons de `usage` et le
+signale dans le studio. Le résultat reste une interprétation dans le style
+Wobnimo : au repos, les yeux de l'écran LED restent ceux du moteur.
 
 | Méthode | Route | Description |
 |---|---|---|
-| POST | `/api/engines/3d/from-image` | multipart `file` -> `{"spec_id"}` (503 sans clé fal.ai ou sans Node) |
-| GET | `/api/engines/3d/specs/{spec_id}` | statut, nom, passes, avertissements, coût |
+| POST | `/api/engines/3d/from-image` | multipart `file` -> `{"spec_id"}` (503 sans la clé du fournisseur choisi ou sans Node) |
+| GET | `/api/engines/3d/specs/{spec_id}` | statut, nom, passes, avertissements, coût et `cost_estimated` |
 
 La fiche s'utilise ensuite avec `{"spec": spec_id}` à la place de
 `{"character": ...}`, pour l'aperçu comme pour l'export.
@@ -351,6 +386,7 @@ utilise (voir `engines/README.md`).
 - `backend/main.py` : app FastAPI, routes, fichiers statiques
 - `backend/states.py` : presets d'états et validation des états libres
 - `backend/fal.py` : client fal.ai (upload, text-to-image, image-to-video)
+- `backend/openrouter.py` : client OpenRouter direct pour la lecture d'images
 - `backend/alpha.py` : fond vert, détourage ffmpeg, mesure du regard
 - `backend/pipeline.py` : jobs, fallback, téléchargement, relance, reprise au démarrage
 - `backend/cost.py` : compteur mensuel, réservations, plafond

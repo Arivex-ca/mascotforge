@@ -3,19 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MascotForge : Studio</title>
+<title>MascotForge : donne un visage à ton agent IA</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header class="barre-haut">
-  <div>
-    <h1>MascotForge <span class="badge-v2">V3</span></h1>
-    <p class="sous-titre">Studio de génération de mascottes animées par IA.</p>
-  </div>
-  <div class="compteur-cout" id="compteur-cout" title="Coût cumulé ce mois-ci (borne Arivex)">
-    <span class="cout-ligne"><strong id="cout-depense">…</strong>&nbsp;/ <span id="cout-plafond">…</span> ce mois-ci</span>
-    <span class="cout-sous" id="cout-mascottes"></span>
+  <button type="button" class="marque" id="btn-accueil" aria-label="Revenir à l'accueil de MascotForge">
+    <span class="marque-signe" aria-hidden="true">M</span>
+    <span>MascotForge <small>Studio</small></span>
+  </button>
+  <div class="actions-entete">
+    <button type="button" class="bouton-texte cache" id="btn-recommencer">Recommencer</button>
+    <button type="button" class="bouton-texte bouton-agents" id="btn-agents" aria-expanded="false" aria-controls="panneau-agents">
+      <span class="libelle-agents-long">Pour les agents</span>
+      <span class="libelle-agents-court" aria-hidden="true">Agents</span>
+    </button>
+    <button type="button" class="bouton-icone" id="btn-reglages" aria-label="Ouvrir les Réglages" aria-expanded="false" aria-controls="panneau-reglages">
+      <span aria-hidden="true">⚙</span>
+    </button>
   </div>
 </header>
 
@@ -24,149 +30,465 @@
   <button id="bandeau-fermer" type="button" aria-label="Fermer le message">×</button>
 </div>
 
+<div id="voile-reglages" class="voile-reglages cache"></div>
+<aside id="panneau-reglages" class="panneau-reglages cache" role="dialog" aria-modal="true" aria-labelledby="titre-reglages">
+  <div class="entete-reglages">
+    <div>
+      <p class="sur-titre">Tes fournisseurs IA</p>
+      <h2 id="titre-reglages">Réglages</h2>
+    </div>
+    <button type="button" class="bouton-icone" id="fermer-reglages" aria-label="Fermer les Réglages">×</button>
+  </div>
+
+  <p class="securite-cles">Ta clé reste dans ton navigateur. Elle part seulement vers ce serveur MascotForge lors d'un test ou d'une création payante. Le serveur ne l'enregistre nulle part.</p>
+
+  <section class="bloc-cle" aria-labelledby="titre-cle-fal">
+    <div class="titre-cle">
+      <h3 id="titre-cle-fal">Clé fal.ai</h3>
+      <span id="etat-cle-fal" class="etat-cle"></span>
+    </div>
+    <div class="champ-secret">
+      <input type="password" id="cle-fal" autocomplete="off" spellcheck="false" aria-label="Clé fal.ai">
+      <button type="button" class="bouton-icone afficher-secret" data-cible="cle-fal" aria-label="Afficher la clé fal.ai">👁</button>
+    </div>
+    <div class="actions-cle">
+      <button type="button" class="secondaire" id="tester-cle-fal">Tester</button>
+      <button type="button" class="discret" id="effacer-cle-fal">Effacer</button>
+    </div>
+    <p id="statut-cle-fal" class="statut-cle" aria-live="polite"></p>
+  </section>
+
+  <section class="bloc-cle" aria-labelledby="titre-cle-openrouter">
+    <div class="titre-cle">
+      <h3 id="titre-cle-openrouter">Clé OpenRouter <small>optionnelle</small></h3>
+      <span id="etat-cle-openrouter" class="etat-cle"></span>
+    </div>
+    <div class="champ-secret">
+      <input type="password" id="cle-openrouter" autocomplete="off" spellcheck="false" aria-label="Clé OpenRouter">
+      <button type="button" class="bouton-icone afficher-secret" data-cible="cle-openrouter" aria-label="Afficher la clé OpenRouter">👁</button>
+    </div>
+    <div class="actions-cle">
+      <button type="button" class="secondaire" id="tester-cle-openrouter">Tester</button>
+      <button type="button" class="discret" id="effacer-cle-openrouter">Effacer</button>
+    </div>
+    <p id="statut-cle-openrouter" class="statut-cle" aria-live="polite"></p>
+  </section>
+
+  <label class="champ-fournisseur" for="fournisseur-vision">
+    <span>Fournisseur pour lire les images 3D</span>
+    <select id="fournisseur-vision">
+      <option value="fal">fal.ai</option>
+      <option value="openrouter">OpenRouter direct</option>
+    </select>
+    <small>La vidéo exige toujours fal.ai.</small>
+  </label>
+
+  <label class="case-souvenir">
+    <input type="checkbox" id="se-souvenir">
+    <span>Se souvenir sur cet appareil</span>
+  </label>
+  <p id="statut-stockage" class="statut-stockage" aria-live="polite"></p>
+</aside>
+
+<div id="voile-agents" class="voile-reglages cache"></div>
+<aside id="panneau-agents" class="panneau-reglages panneau-agents cache" role="dialog" aria-modal="true" aria-labelledby="titre-agents">
+  <div class="entete-reglages">
+    <div>
+      <p class="sur-titre">CLI et serveur MCP</p>
+      <h2 id="titre-agents">Pour les agents</h2>
+    </div>
+    <button type="button" class="bouton-icone" id="fermer-agents" aria-label="Fermer le panneau Pour les agents">×</button>
+  </div>
+
+  <p class="intro-agents">La CLI et le serveur MCP permettent à un agent de choisir, vérifier, créer et exporter une mascotte depuis son propre environnement.</p>
+
+  <section class="bloc-agent" aria-labelledby="titre-cli-agents">
+    <h3 id="titre-cli-agents">Commandes CLI</h3>
+    <div class="bloc-code-agent">
+      <div class="entete-code-agent">
+        <strong>Explorer et exporter</strong>
+        <button type="button" class="discret bouton-copie-agent" data-cible="commandes-code-agent">Copier</button>
+      </div>
+      <pre><code id="commandes-code-agent">python -m mascotforge styles
+python -m mascotforge code --engine blob --set shape=cloud --out ./mon-blob
+python -m mascotforge code --engine 3d --set character=volt --out ./mon-robot</code></pre>
+    </div>
+    <div class="bloc-code-agent">
+      <div class="entete-code-agent">
+        <strong>Construire une fiche 3D</strong>
+        <button type="button" class="discret bouton-copie-agent" data-cible="commandes-spec-agent">Copier</button>
+      </div>
+      <pre><code id="commandes-spec-agent">python -m mascotforge spec guide --out ./guide-wobnimo.md
+python -m mascotforge spec check ./personnage.json
+python -m mascotforge spec preview ./personnage.json --out ./planche.png
+python -m mascotforge spec export ./personnage.json --out ./personnage-3d</code></pre>
+    </div>
+    <div class="bloc-code-agent">
+      <div class="entete-code-agent">
+        <strong>Lancer une création IA</strong>
+        <button type="button" class="discret bouton-copie-agent" data-cible="commandes-ia-agent">Copier</button>
+      </div>
+      <pre><code id="commandes-ia-agent">python -m mascotforge image3d ./robot.png --out ./robot-3d
+python -m mascotforge video --image ./robot.png --usage agent --out ./robot-video</code></pre>
+    </div>
+    <div class="bloc-code-agent">
+      <div class="entete-code-agent">
+        <strong>Démarrer le serveur MCP</strong>
+        <button type="button" class="discret bouton-copie-agent" data-cible="commande-mcp-agent">Copier</button>
+      </div>
+      <pre><code id="commande-mcp-agent">python -m mascotforge mcp</code></pre>
+    </div>
+  </section>
+
+  <section class="bloc-agent" aria-labelledby="titre-connexion-agent">
+    <h3 id="titre-connexion-agent">Adresse et clés</h3>
+    <p><code>MASCOTFORGE_URL</code> définit l'adresse du serveur, par défaut <code>http://localhost:8766</code>.</p>
+    <p><code>MASCOTFORGE_FAL_KEY</code> devient l'en-tête <code>X-Fal-Key</code>. <code>MASCOTFORGE_OPENROUTER_KEY</code> devient <code>X-OpenRouter-Key</code>. Le choix de lecture d'image utilise <code>X-Vision-Provider: fal|openrouter</code>. Les clés ne vont jamais dans l'URL.</p>
+  </section>
+
+  <section class="bloc-agent" aria-labelledby="titre-claude-agent">
+    <h3 id="titre-claude-agent">Claude Desktop</h3>
+    <p class="chemin-config">Dans <code>%APPDATA%\Claude\claude_desktop_config.json</code> :</p>
+    <div class="bloc-code-agent">
+      <div class="entete-code-agent">
+        <strong>Configuration MCP</strong>
+        <button type="button" class="discret bouton-copie-agent" data-cible="config-claude-agent">Copier</button>
+      </div>
+      <pre><code id="config-claude-agent">{
+  &quot;mcpServers&quot;: {
+    &quot;mascotforge&quot;: {
+      &quot;command&quot;: &quot;C:\Users\Darius\Desktop\text-to-mascot\.venv\Scripts\python.exe&quot;,
+      &quot;args&quot;: [&quot;-m&quot;, &quot;mascotforge&quot;, &quot;mcp&quot;],
+      &quot;env&quot;: {&quot;MASCOTFORGE_URL&quot;: &quot;http://localhost:8766&quot;}
+    }
+  }
+}</code></pre>
+    </div>
+  </section>
+
+  <section class="bloc-agent" aria-labelledby="titre-cursor-agent">
+    <h3 id="titre-cursor-agent">Cursor</h3>
+    <p class="chemin-config">Dans <code>.cursor/mcp.json</code> :</p>
+    <div class="bloc-code-agent">
+      <div class="entete-code-agent">
+        <strong>Configuration MCP</strong>
+        <button type="button" class="discret bouton-copie-agent" data-cible="config-cursor-agent">Copier</button>
+      </div>
+      <pre><code id="config-cursor-agent">{
+  &quot;mcpServers&quot;: {
+    &quot;mascotforge&quot;: {
+      &quot;command&quot;: &quot;C:\Users\Darius\Desktop\text-to-mascot\.venv\Scripts\python.exe&quot;,
+      &quot;args&quot;: [&quot;-m&quot;, &quot;mascotforge&quot;, &quot;mcp&quot;],
+      &quot;env&quot;: {&quot;MASCOTFORGE_URL&quot;: &quot;http://localhost:8766&quot;}
+    }
+  }
+}</code></pre>
+    </div>
+  </section>
+  <p id="statut-copie-agents" class="statut-copie-agents" aria-live="polite"></p>
+</aside>
+
 <main>
+  <nav class="progression cache" id="progression" aria-label="Progression de la création">
+    <span data-ecran="ecran-creation"><b>1</b> Choix</span>
+    <span data-ecran="ecran-personnalisation"><b>2</b> Personnalisation</span>
+    <span data-ecran="ecran-final"><b>3</b> Intégration</span>
+  </nav>
 
-  <section id="choix-style" aria-labelledby="titre-style">
-    <h2 id="titre-style">Style</h2>
-    <div class="onglets onglets-style" role="tablist" aria-label="Style de mascotte">
-      <button type="button" id="style-video" class="onglet actif" role="tab" aria-selected="true">Vidéo IA (ton personnage)</button>
-      <button type="button" id="style-blob" class="onglet" role="tab" aria-selected="false">Blob en code (gratuit)</button>
-      <button type="button" id="style-3d" class="onglet" role="tab" aria-selected="false">3D en code (gratuit)</button>
-    </div>
-    <p class="muted" id="description-style">Ton image est animée par IA, pour environ 0,25 $ par état.</p>
-  </section>
-
-  <section id="etape-1" aria-label="Étape 1 : personnage">
-    <h2><span class="num">1</span>Personnage</h2>
-    <div class="onglets" role="tablist">
-      <button type="button" id="onglet-upload" class="onglet actif" role="tab" aria-selected="true">Uploader une image</button>
-      <button type="button" id="onglet-prompt" class="onglet" role="tab" aria-selected="false">Décrire en prompt</button>
+  <section id="ecran-accueil" class="ecran-assistant ecran-accueil" aria-labelledby="titre-accueil">
+    <div class="hero-copy">
+      <p class="sur-titre">Une présence qui réagit, écoute et parle</p>
+      <h1 id="titre-accueil">Donne un visage à ton agent IA ou à ton site.</h1>
+      <p class="hero-texte">Crée une mascotte vivante, puis colle-la dans ton projet. Choisis ton point de départ en moins de 10 secondes.</p>
     </div>
 
-    <div id="panneau-upload" class="panneau-onglet" role="tabpanel">
-      <label class="zone-fichier" for="fichier">
-        <input type="file" id="fichier" accept="image/png,image/jpeg,image/webp" hidden>
-        <img id="apercu-fichier" class="apercu-fichier fond-damier cache" alt="">
-        <span class="zone-texte" id="zone-texte">Clique pour choisir une image (PNG détouré conseillé pour un fond transparent, 10 Mo max)</span>
-      </label>
-      <button type="button" class="primaire" id="btn-upload" disabled>Uploader et créer le personnage</button>
+    <div class="trio-mascottes" aria-label="Exemples de mascottes animées">
+      <div class="socle-mascotte socle-lilas">
+        <mascot-avatar manifest="/api/engines/blob/manifest.json?shape=mochi&amp;color=lilac" sleep-after="0" label="Blob lilas animé"></mascot-avatar>
+        <span>Mochi</span>
+      </div>
+      <div class="socle-mascotte socle-jaune vedette">
+        <mascot-avatar manifest="/api/engines/3d/manifest.json?character=volt" sleep-after="0" label="Volt, robot 3D animé"></mascot-avatar>
+        <span>Volt</span>
+      </div>
+      <div class="socle-mascotte socle-menthe">
+        <mascot-avatar manifest="/api/engines/3d/manifest.json?character=pip" sleep-after="0" label="Pip, personnage 3D animé"></mascot-avatar>
+        <span>Pip</span>
+      </div>
     </div>
 
-    <div id="panneau-prompt" class="panneau-onglet cache" role="tabpanel">
-      <label class="etiquette" for="prompt">Décris la mascotte à générer</label>
-      <textarea id="prompt" rows="4" placeholder="Exemple : un renard roux aux yeux ronds, style cartoon 2D, couleurs vives (évite le vert : le fond vert sert au détourage)"></textarea>
-      <button type="button" class="primaire" id="btn-prompt">Générer le personnage</button>
-    </div>
-
-    <div id="apercu-personnage" class="apercu-personnage cache">
-      <img id="img-personnage" alt="Aperçu du personnage créé">
-      <p class="muted" id="info-personnage">Personnage prêt. Tu peux lancer la génération des états.</p>
-    </div>
-  </section>
-
-  <section id="etape-2" class="verrouillee" aria-label="Étape 2 : états et génération">
-    <h2><span class="num">2</span>États et génération</h2>
-    <p class="muted">Pars d'un usage, puis ajoute, retire ou décris tes propres états. Chaque état coûte un clip de 3 secondes. Une boucle tourne tant que l'état est actif ; sans boucle, l'état joue une fois puis revient au précédent.</p>
-    <div class="ligne">
-      <label class="etiquette-inline" for="usage">Usage</label>
-      <select id="usage"></select>
-    </div>
-    <ul id="editeur-etats" class="editeur-etats"></ul>
-    <div class="ligne">
-      <button type="button" id="btn-ajouter-etat">Ajouter un état</button>
-      <span class="muted" id="estimation" aria-live="polite"></span>
-    </div>
-    <div class="ligne">
-      <button type="button" class="primaire" id="btn-generer" disabled>Générer les états</button>
-      <span class="muted" id="statut-job" aria-live="polite"></span>
-    </div>
-    <ul id="liste-etats" class="liste-etats"></ul>
-    <div class="ligne">
-      <button type="button" id="btn-relancer" class="cache">Relancer les états en échec</button>
+    <div class="choix-usage" aria-labelledby="question-usage">
+      <h2 id="question-usage">Où va vivre ta mascotte&nbsp;?</h2>
+      <div class="grille-usage">
+        <button type="button" class="carte-usage" id="choix-agent">
+          <span class="icone-usage" aria-hidden="true">✦</span>
+          <span><strong>Pour mon agent IA</strong><small>Elle réfléchit, écoute et parle avec lui.</small></span>
+          <span class="fleche" aria-hidden="true">→</span>
+        </button>
+        <button type="button" class="carte-usage" id="choix-site">
+          <span class="icone-usage" aria-hidden="true">◉</span>
+          <span><strong>Pour mon site</strong><small>Elle accueille, guide et célèbre les actions.</small></span>
+          <span class="fleche" aria-hidden="true">→</span>
+        </button>
+      </div>
     </div>
   </section>
 
-  <section id="etape-3" class="verrouillee" aria-label="Étape 3 : aperçu">
-    <h2><span class="num">3</span>Aperçu</h2>
-    <p class="muted verrouille-msg">Termine la génération pour essayer la mascotte ici, dans le vrai widget.</p>
-    <div class="apercu-widget">
-      <div class="scene fond-damier" id="scene"></div>
-      <div>
-        <p class="muted">Clique un état : la mascotte le joue à la fin du clip en cours.</p>
-        <div class="controles-etats" id="controles-etats"></div>
-        <p class="muted">Fond de test :</p>
-        <div class="controles-etats" id="controles-fond">
-          <button type="button" data-fond="fond-damier">Damier</button>
-          <button type="button" data-fond="fond-clair">Clair</button>
-          <button type="button" data-fond="fond-sombre">Sombre</button>
+  <section id="ecran-creation" class="ecran-assistant cache" aria-labelledby="titre-creation">
+    <button type="button" class="retour" id="retour-accueil">← Retour</button>
+    <div class="entete-ecran">
+      <p class="sur-titre">Trois façons de lui donner vie</p>
+      <h1 id="titre-creation">Comment veux-tu la créer&nbsp;?</h1>
+      <p>Choisis le résultat qui te ressemble. Tu pourras changer d’avis.</p>
+    </div>
+
+    <div class="grille-methodes">
+      <article class="carte-methode recommandee">
+        <div class="apercu-methode fond-jaune">
+          <span class="badge-recommande">Recommandé pour commencer</span>
+          <mascot-avatar manifest="/api/engines/3d/manifest.json?character=volt" sleep-after="0" label="Aperçu d'un personnage 3D"></mascot-avatar>
         </div>
-        <p class="muted" id="suivi-texte">Suivi du curseur : au repos, la tête regarde vers la souris (clip de 8 secondes).</p>
-        <div class="controles-etats">
+        <div class="contenu-methode">
+          <p class="meta-methode"><strong>Sans clé API</strong><span>Instantané</span></p>
+          <h2>Un personnage 3D tout prêt</h2>
+          <p>Choisis parmi 20 personnages. Il suit déjà le curseur et change d’humeur.</p>
+          <button type="button" class="primaire pleine" id="btn-methode-3d">Choisir un personnage 3D</button>
+        </div>
+      </article>
+
+      <article class="carte-methode">
+        <div class="apercu-methode fond-lilas">
+          <mascot-avatar manifest="/api/engines/blob/manifest.json?shape=mochi&amp;color=lilac" sleep-after="0" label="Aperçu d'un blob animé"></mascot-avatar>
+        </div>
+        <div class="contenu-methode">
+          <p class="meta-methode"><strong>Sans clé API</strong><span>Instantané</span></p>
+          <h2>Un blob à tes couleurs</h2>
+          <p>Choisis sa forme, sa matière, ses yeux et sa couleur. Il prend vie tout de suite.</p>
+          <button type="button" class="secondaire pleine" id="btn-methode-blob">Créer mon blob</button>
+        </div>
+      </article>
+
+      <article class="carte-methode">
+        <div class="apercu-methode fond-menthe">
+          <mascot-avatar manifest="/api/engines/3d/manifest.json?character=pip" sleep-after="0" label="Exemple de personnage créé depuis une image"></mascot-avatar>
+          <span class="etiquette-apercu">Exemple 3D</span>
+        </div>
+        <div class="contenu-methode">
+          <p class="meta-methode"><strong>Nécessite une clé API</strong><span>Quelques minutes</span></p>
+          <h2>À partir de mon image</h2>
+          <p>Anime ton personnage en vidéo ou transforme-le en personnage 3D.</p>
+          <div class="actions-methode">
+            <button type="button" class="secondaire pleine" id="btn-methode-video">Créer une vidéo IA</button>
+            <button type="button" class="discret pleine" id="btn-methode-image3d">Créer une version 3D</button>
+          </div>
+          <p class="message-capacite cache" id="message-capacite-fal">
+            <span id="texte-capacite-fal"></span>
+            <button type="button" class="lien-inline" id="ouvrir-reglages-capacite">Ouvrir Réglages</button>
+          </p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section id="ecran-personnalisation" class="ecran-assistant cache" aria-labelledby="titre-personnalisation">
+    <div class="barre-ecran">
+      <button type="button" class="retour" id="retour-creation">← Retour</button>
+      <div class="compteur-cout cache" id="compteur-cout" title="Coût cumulé ce mois-ci">
+        <span class="cout-ligne"><strong id="cout-depense">…</strong>&nbsp;/ <span id="cout-plafond">…</span> ce mois-ci</span>
+        <span class="cout-sous" id="cout-mascottes"></span>
+      </div>
+    </div>
+    <div class="entete-ecran entete-personnalisation">
+      <p class="sur-titre" id="sur-titre-personnalisation">Personnalisation</p>
+      <h1 id="titre-personnalisation">Donne-lui ton style.</h1>
+      <p id="description-style">Tes choix apparaissent en direct.</p>
+    </div>
+
+    <div id="code" class="cache" aria-label="Personnalisation de la mascotte en code">
+      <div class="atelier-layout">
+        <form id="formulaire-code" class="panneau-outils formulaire-code">
+          <div id="choix-source-3d" class="choix-source-3d cache">
+            <div class="onglets" role="tablist" aria-label="Source du personnage 3D">
+              <button type="button" id="onglet-3d-galerie" class="onglet actif" role="tab" aria-selected="true" aria-controls="reglages-code">Personnage prêt</button>
+              <button type="button" id="onglet-3d-image" class="onglet" role="tab" aria-selected="false" aria-controls="panneau-3d-image">Depuis ton image</button>
+            </div>
+          </div>
+          <div id="reglages-code" class="grille-reglages"></div>
+          <div id="panneau-3d-image" class="panneau-onglet panneau-3d-image cache" role="tabpanel" aria-labelledby="onglet-3d-image">
+            <p class="explication-3d">Ton image devient un personnage dans le style Wobnimo. Compte 1 à 4 minutes. Le résultat interprète ton image sans la copier.</p>
+            <p class="info-prix" id="info-capacite-3d">Demande une clé fal.ai et Node 18 ou plus.</p>
+            <button type="button" class="lien-inline cache" id="ouvrir-reglages-3d">Ouvrir Réglages</button>
+            <label class="zone-fichier" for="fichier-3d">
+              <input type="file" id="fichier-3d" accept="image/png,image/jpeg,image/webp" hidden>
+              <img id="apercu-fichier-3d" class="apercu-fichier fond-damier cache" alt="">
+              <span class="zone-texte" id="zone-texte-3d">Choisis ton image · PNG, JPEG ou WebP · 10 Mo max</span>
+            </label>
+            <div class="ligne ligne-creation-3d">
+              <button type="button" class="primaire" id="btn-creer-3d" disabled>Créer en 3D, environ 0,15 à 0,60&nbsp;$</button>
+              <span class="texte-statut-action" id="statut-creation-3d" aria-live="polite"></span>
+            </div>
+            <p class="resultat-3d cache" id="info-personnage-3d" aria-live="polite"></p>
+            <p class="avertissement-code cache" id="avertissements-personnage-3d"></p>
+          </div>
+          <button type="button" class="primaire pleine action-finale" id="btn-terminer-code" disabled>Voir ma mascotte prête</button>
+        </form>
+
+        <aside class="panneau-apercu" aria-label="Aperçu vivant">
+          <p class="legende-apercu"><span class="point-vivant"></span> Aperçu vivant</p>
+          <div class="scene fond-creme" id="scene-code">
+            <mascot-avatar manifest="/api/engines/3d/manifest.json?character=volt" sleep-after="0" label="Exemple de mascotte animée"></mascot-avatar>
+          </div>
+          <p class="aide-apercu">Essaie ses réactions.</p>
+          <div class="controles-etats" id="controles-etats-code"></div>
+        </aside>
+      </div>
+    </div>
+
+    <div id="parcours-video" class="cache" aria-label="Création de la mascotte vidéo">
+      <div class="atelier-layout video-layout">
+        <div class="panneau-outils">
+          <section id="etape-1" class="sous-etape" aria-label="Choisir le personnage">
+            <h2>Pars de ton image ou décris ton personnage</h2>
+            <div class="onglets" role="tablist" aria-label="Source du personnage vidéo">
+              <button type="button" id="onglet-upload" class="onglet actif" role="tab" aria-selected="true">Choisir une image</button>
+              <button type="button" id="onglet-prompt" class="onglet" role="tab" aria-selected="false">Le décrire</button>
+            </div>
+
+            <div id="panneau-upload" class="panneau-onglet" role="tabpanel">
+              <label class="zone-fichier" for="fichier">
+                <input type="file" id="fichier" accept="image/png,image/jpeg,image/webp" hidden>
+                <img id="apercu-fichier" class="apercu-fichier fond-damier cache" alt="">
+                <span class="zone-texte" id="zone-texte">Choisis ton image · PNG détouré conseillé · 10 Mo max</span>
+              </label>
+              <button type="button" class="primaire pleine" id="btn-upload" disabled>Utiliser cette image</button>
+            </div>
+
+            <div id="panneau-prompt" class="panneau-onglet cache" role="tabpanel">
+              <label class="etiquette" for="prompt">À quoi ressemble ta mascotte&nbsp;?</label>
+              <textarea id="prompt" rows="4" placeholder="Exemple : un petit renard roux aux yeux ronds, style dessin animé, couleurs chaudes"></textarea>
+              <button type="button" class="primaire pleine" id="btn-prompt">Créer l’image · environ 0,03&nbsp;$</button>
+            </div>
+
+            <div id="apercu-personnage" class="apercu-personnage cache">
+              <img id="img-personnage" alt="Aperçu du personnage créé">
+              <p id="info-personnage">Ton personnage est prêt.</p>
+            </div>
+          </section>
+
+          <section id="etape-2" class="sous-etape cache" aria-label="Animer le personnage">
+            <div class="resume-animation">
+              <div>
+                <h2>Donne-lui vie</h2>
+                <p id="resume-usage">Les réactions utiles pour ton projet sont déjà choisies.</p>
+              </div>
+              <span class="pastille-usage" id="pastille-usage">Agent IA</span>
+            </div>
+
+            <details class="reglages-avances" id="reglages-avances">
+              <summary>Personnaliser les états <span>(avancé)</span></summary>
+              <div class="contenu-avance">
+                <div class="ligne">
+                  <label class="etiquette-inline" for="usage">Réactions prévues</label>
+                  <select id="usage"></select>
+                </div>
+                <ul id="editeur-etats" class="editeur-etats"></ul>
+                <button type="button" id="btn-ajouter-etat">Ajouter un état</button>
+              </div>
+            </details>
+
+            <div class="bloc-generation">
+              <span class="estimation" id="estimation" aria-live="polite"></span>
+              <button type="button" class="primaire pleine" id="btn-generer" disabled>Générer ma mascotte</button>
+              <span class="texte-statut-action" id="statut-job" aria-live="polite"></span>
+            </div>
+            <ul id="liste-etats" class="liste-etats"></ul>
+            <button type="button" id="btn-relancer" class="cache">Relancer les états en échec</button>
+          </section>
+        </div>
+
+        <aside class="panneau-apercu apercu-exemple" id="apercu-exemple-video" aria-label="Exemple de mascotte vivante">
+          <p class="legende-apercu"><span class="point-vivant"></span> Exemple vivant</p>
+          <div class="scene fond-creme">
+            <mascot-avatar manifest="/api/engines/3d/manifest.json?character=volt" sleep-after="0" label="Exemple de mascotte animée"></mascot-avatar>
+          </div>
+          <p>Ta mascotte remplacera Volt dès que ses animations seront prêtes.</p>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section id="ecran-final" class="ecran-assistant cache" aria-labelledby="titre-final">
+    <button type="button" class="retour" id="retour-personnalisation">← Modifier ma mascotte</button>
+    <div class="entete-ecran entete-final">
+      <p class="sur-titre">Ta mascotte est prête</p>
+      <h1 id="titre-final">Présente-la à ton public.</h1>
+      <p id="sous-titre-final">Teste ses réactions, puis copie le code dans ton projet.</p>
+    </div>
+
+    <div class="resultat-layout">
+      <div class="panneau-resultat">
+        <p class="legende-apercu"><span class="point-vivant"></span> Mascotte active</p>
+        <div class="scene fond-creme" id="scene"></div>
+        <p class="aide-apercu">Fais-la réagir.</p>
+        <div class="controles-etats" id="controles-etats"></div>
+        <div class="outils-fond">
+          <span>Fond</span>
+          <div class="controles-fond" id="controles-fond">
+            <button type="button" data-fond="fond-creme">Crème</button>
+            <button type="button" data-fond="fond-clair">Clair</button>
+            <button type="button" data-fond="fond-sombre">Sombre</button>
+          </div>
+        </div>
+        <div id="bloc-suivi" class="bloc-suivi cache">
+          <p id="suivi-texte">Au repos, sa tête peut suivre la souris.</p>
           <button type="button" id="btn-suivi">Ajouter le suivi du curseur</button>
         </div>
       </div>
-    </div>
-  </section>
 
-  <section id="etape-4" class="verrouillee" aria-label="Étape 4 : export">
-    <h2><span class="num">4</span>Export</h2>
-    <p class="muted verrouille-msg">Le dossier sera disponible quand la génération sera terminée.</p>
-    <p class="muted">Le dossier contient une vidéo par état, le manifest et le widget prêt à coller dans ton site.</p>
-    <div class="ligne">
-      <button type="button" class="primaire" id="btn-export" disabled>Exporter le dossier</button>
-      <a id="lien-telechargement" class="lien-telechargement cache" href="#">Télécharger le zip</a>
-    </div>
-  </section>
+      <div class="panneau-integration">
+        <h2>Colle-la dans ton site</h2>
+        <p>Deux balises suffisent. Les noms techniques restent dans le code.</p>
+        <div class="bloc-code">
+          <pre><code id="code-integration"></code></pre>
+          <button type="button" class="bouton-copier" id="btn-copier-code">Copier le code</button>
+        </div>
+        <p class="retour-copie" id="retour-copie" aria-live="polite"></p>
 
-  <section id="code" class="cache" aria-label="Mascotte en code">
-    <h2>Personnalisation</h2>
-    <form id="formulaire-code" class="formulaire-code">
-      <div id="choix-source-3d" class="choix-source-3d cache">
-        <div class="onglets" role="tablist" aria-label="Source du personnage 3D">
-          <button type="button" id="onglet-3d-galerie" class="onglet actif" role="tab" aria-selected="true" aria-controls="reglages-code">Personnage de la galerie</button>
-          <button type="button" id="onglet-3d-image" class="onglet" role="tab" aria-selected="false" aria-controls="panneau-3d-image">Depuis ton image</button>
+        <details class="exemple-agent">
+          <summary>Exemple pour un agent IA</summary>
+          <pre><code>var avatar = document.querySelector("mascot-avatar");
+
+avatar.play("thinking");
+var reponse = await demanderAgent();
+
+avatar.play("talking");
+afficherReponse(reponse);</code></pre>
+        </details>
+
+        <div class="bloc-export" id="bloc-export-video">
+          <button type="button" class="secondaire" id="btn-export">Préparer le zip</button>
+          <a id="lien-telechargement" class="lien-telechargement cache" href="#">Télécharger le zip</a>
         </div>
-      </div>
-      <div id="reglages-code" class="grille-reglages"></div>
-      <div id="panneau-3d-image" class="panneau-onglet panneau-3d-image cache" role="tabpanel" aria-labelledby="onglet-3d-image">
-        <p class="muted explication-3d">Un modèle lit ton image et dessine le personnage en 3D, Wobnimo le vérifie, puis le modèle compare son rendu à ton image et corrige les différences. Compte environ 0,15 à 0,60 $ et 1 à 4 min. Le résultat est une interprétation dans le style Wobnimo, pas une copie exacte.</p>
-        <label class="zone-fichier" for="fichier-3d">
-          <input type="file" id="fichier-3d" accept="image/png,image/jpeg,image/webp" hidden>
-          <img id="apercu-fichier-3d" class="apercu-fichier fond-damier cache" alt="">
-          <span class="zone-texte" id="zone-texte-3d">Clique pour choisir une image (PNG, JPEG ou WebP, 10 Mo max)</span>
-        </label>
-        <div class="ligne ligne-creation-3d">
-          <button type="button" class="primaire" id="btn-creer-3d" disabled>Créer le personnage 3D</button>
-          <span class="muted" id="statut-creation-3d" aria-live="polite"></span>
+        <div class="bloc-export cache" id="bloc-export-code">
+          <button type="button" class="secondaire" id="btn-export-code">Préparer le zip</button>
+          <a id="lien-telechargement-code" class="lien-telechargement cache" href="#">Télécharger le zip</a>
         </div>
-        <p class="resultat-3d cache" id="info-personnage-3d" aria-live="polite"></p>
-        <p class="avertissement-code cache" id="avertissements-personnage-3d"></p>
+        <p class="credit-code" id="credit-code"></p>
       </div>
-    </form>
-    <div class="apercu-widget">
-      <div class="scene fond-damier" id="scene-code"></div>
+    </div>
+
+    <div class="note-developpeur">
       <div>
-        <p class="muted">Clique un état pour le jouer dans le vrai widget.</p>
-        <div class="controles-etats" id="controles-etats-code"></div>
-        <p class="muted">Fond de test :</p>
-        <div class="controles-etats" id="controles-fond-code">
-          <button type="button" data-fond="fond-damier">Damier</button>
-          <button type="button" data-fond="fond-clair">Clair</button>
-          <button type="button" data-fond="fond-sombre">Sombre</button>
-        </div>
+        <strong>Tu préfères automatiser&nbsp;?</strong>
+        <p>La CLI et le serveur MCP donnent les mêmes pouvoirs à ton agent.</p>
       </div>
-    </div>
-    <p class="muted credit-code" id="credit-code"></p>
-    <div class="ligne">
-      <button type="button" class="primaire" id="btn-export-code" disabled>Exporter le dossier</button>
-      <a id="lien-telechargement-code" class="lien-telechargement cache" href="#">Télécharger le zip</a>
+      <code>python -m mascotforge</code>
     </div>
   </section>
-
 </main>
 
 <footer class="pied">
-  <span class="muted">MascotForge, brique produit Arivex. Coût : environ 0,25 $ par état, plus 0,03 $ pour une image générée.</span>
+  <span>MascotForge crée des mascottes prêtes pour le Web et les agents IA.</span>
 </footer>
 
 <script src="/widget/mascot-avatar.js"></script>

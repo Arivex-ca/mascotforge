@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import httpx
 import pytest
 
 from backend import image3d
@@ -23,6 +24,27 @@ def test_styles_json_lists_engines_presets_and_prices(client, capsys):
     assert set(body["engines"]) == {"blob", "3d"}
     assert set(body["presets"]["presets"]) == {"agent", "site", "complet"}
     assert body["presets"]["cost_per_state_usd"] > 0
+
+
+def test_client_sends_keys_from_environment_as_headers(monkeypatch):
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"month": "2026-11"})
+
+    monkeypatch.setenv("MASCOTFORGE_FAL_KEY", "fal-cli-secret")
+    monkeypatch.setenv("MASCOTFORGE_OPENROUTER_KEY", "or-cli-secret")
+    http_client = httpx.Client(
+        base_url="http://testserver", transport=httpx.MockTransport(handler)
+    )
+    api = MascotForgeClient(base_url="http://testserver", http_client=http_client)
+
+    assert api.cost()["month"] == "2026-11"
+    assert seen[0].headers["X-Fal-Key"] == "fal-cli-secret"
+    assert seen[0].headers["X-OpenRouter-Key"] == "or-cli-secret"
+    assert "fal-cli-secret" not in str(seen[0].url)
+    assert "or-cli-secret" not in str(seen[0].url)
 
 
 @pytest.mark.parametrize(

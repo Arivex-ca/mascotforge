@@ -10,7 +10,6 @@ Toutes les fonctions publiques sont ``async`` et mockables par les tests
 from __future__ import annotations
 
 import asyncio
-import os
 from pathlib import Path
 from typing import Any
 
@@ -67,8 +66,7 @@ def _require_key() -> str:
     key = settings.get_fal_key()
     if not key:
         raise FalNotConfiguredError(
-            "FAL_KEY n'est pas configuree : impossible d'appeler fal.ai. "
-            "Ajoutez la variable d'environnement FAL_KEY puis reessayez."
+            "Colle ta cle fal.ai dans Reglages."
         )
     return key
 
@@ -80,6 +78,10 @@ def _sdk() -> Any | None:
         return fal_client
     except ImportError:
         return None
+
+
+def _http_client(**kwargs: Any) -> httpx.AsyncClient:
+    return httpx.AsyncClient(**kwargs)
 
 
 def _use_rest() -> bool:
@@ -98,10 +100,10 @@ async def _sdk_submit_and_wait(
     if sdk is None:
         raise FalApiError("Le package fal-client n'est pas installe.")
     key = _require_key()
-    os.environ.setdefault("FAL_KEY", key)  # fal-client lit FAL_KEY
 
     def _run() -> dict[str, Any]:
-        handler = sdk.submit(model, arguments=arguments)
+        client = sdk.SyncClient(key=key)
+        handler = client.submit(model, arguments=arguments)
         return handler.get()
 
     try:
@@ -112,8 +114,8 @@ async def _sdk_submit_and_wait(
         ) from exc
     except FalApiError:
         raise
-    except Exception as exc:  # erreur remontee par fal-client
-        raise FalApiError(f"Erreur fal.ai sur {model} : {exc}") from exc
+    except Exception:  # erreur remontee par fal-client, detail potentiellement sensible
+        raise FalApiError(f"Erreur fal.ai sur le modele {model}.") from None
 
 
 async def _rest_submit_and_wait(
@@ -129,11 +131,11 @@ async def _rest_submit_and_wait(
     key = _require_key()
     headers = {"Authorization": f"Key {key}", "Content-Type": "application/json"}
     base = f"https://queue.fal.run/{model}"
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with _http_client(timeout=60) as client:
         resp = await client.post(base, json=payload, headers=headers)
         if resp.status_code >= 400:
             raise FalApiError(
-                f"Soumission fal.ai refusee ({resp.status_code}) : {resp.text[:300]}",
+                f"Soumission fal.ai refusee ({resp.status_code}).",
                 status_code=resp.status_code,
             )
         submit = resp.json()
@@ -175,6 +177,27 @@ async def _submit_and_wait(
     if _use_rest():
         return await _rest_submit_and_wait(model, payload)
     return await _sdk_submit_and_wait(model, payload)
+
+
+async def test_key() -> bool:
+    """Valide gratuitement la cle via le jeton de stockage lu dans fal-client 1.0.3."""
+    key = _require_key()
+    url = "https://rest.fal.ai/storage/auth/token?storage_type=fal-cdn-v3"
+    headers = {
+        "Authorization": f"Key {key}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    try:
+        async with _http_client(timeout=30) as client:
+            response = await client.post(url, headers=headers, json={})
+    except httpx.HTTPError:
+        raise FalApiError("Impossible de joindre fal.ai pour tester la cle.") from None
+    if response.status_code in {401, 403}:
+        return False
+    if response.status_code >= 400:
+        raise FalApiError("fal.ai n'a pas pu tester la cle.", status_code=response.status_code)
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -220,12 +243,12 @@ async def upload_character_image(path: Path) -> str:
     sdk = _sdk()
     if sdk is None:  # pragma: no cover - ne devrait pas arriver ici
         raise FalApiError("Le package fal-client n'est pas installe.")
-    key = settings.get_fal_key()
-    os.environ.setdefault("FAL_KEY", key)
+    key = _require_key()
     try:
-        return await asyncio.to_thread(sdk.upload_file, str(path))
-    except Exception as exc:
-        raise FalApiError(f"Echec de l'upload vers fal.ai : {exc}") from exc
+        client = sdk.SyncClient(key=key)
+        return await asyncio.to_thread(client.upload_file, str(path))
+    except Exception:
+        raise FalApiError("Echec de l'upload vers fal.ai.") from None
 
 
 async def generate_character_image(prompt: str) -> str:

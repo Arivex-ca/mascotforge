@@ -27,6 +27,8 @@ class FakeFal:
     """fal.ai simule. Les tests reglent les pannes et lisent les appels."""
 
     def __init__(self) -> None:
+        self.fal_keys: list[str] = []  # cle active vue pendant chaque appel fal.ai simule
+        self.upload_keys: list[str] = []  # cle active pendant les uploads simules
         self.video_calls: list[tuple[str, str]] = []  # (mouvement, modele)
         self.durations: list[int | None] = []  # duree demandee pour chaque clip
         self.vision_prompts: list[str] = []  # messages envoyes au modele vision
@@ -39,6 +41,7 @@ class FakeFal:
     async def describe_image(
         self, image_urls: list[str], system_prompt: str, prompt: str, model: str | None = None
     ) -> tuple[str, float]:
+        self.fal_keys.append(settings.get_fal_key())
         assert all(url.startswith("https://fal.media/fake/") for url in image_urls)
         assert "Wobnimo" in system_prompt
         self.vision_prompts.append(prompt)
@@ -49,16 +52,20 @@ class FakeFal:
         return ("OK" if len(image_urls) > 1 else f"```json\n{ARIVEX_SPEC_TEXT}\n```"), VISION_COST
 
     async def generate_character_image(self, prompt: str) -> str:
+        self.fal_keys.append(settings.get_fal_key())
         assert prompt.startswith(fal_module.CHARACTER_PROMPT_PREFIX)
         return "https://fal.media/fake/character.png"
 
     async def upload_character_image(self, path: Path) -> str:
+        self.fal_keys.append(settings.get_fal_key())
+        self.upload_keys.append(settings.get_fal_key())
         assert path.is_file()
         return "https://fal.media/fake/uploaded.png"
 
     async def generate_state_video(
         self, image_url: str, motion: str, model: str | None = None, duration_s: int | None = None
     ) -> tuple[str, str]:
+        self.fal_keys.append(settings.get_fal_key())
         chosen = model or settings.i2v_model()
         self.video_calls.append((motion, chosen))
         self.durations.append(duration_s)

@@ -1,6 +1,6 @@
 """Image -> personnage 3D Wobnimo.
 
-Un modele qui lit les images (via fal.ai, endpoint openrouter/router/vision)
+Un modele qui lit les images (via fal.ai ou OpenRouter direct)
 regarde l'image et ecrit la fiche Wobnimo (CharacterSpec, en JSON) en suivant
 le guide du projet Wobnimo (engines/wobnimo/skill/). Le verificateur de Wobnimo
 (engines/wobnimo/dist/cli.js, lance avec Node) mesure la vraie forme 3D ; ses
@@ -12,8 +12,10 @@ jusqu'a SPEC_VISUAL_ROUNDS fois. La fiche s'affiche dans <wobnimo-mascot> (el.sp
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
+import mimetypes
 import os
 import re
 import shutil
@@ -27,6 +29,7 @@ from pathlib import Path
 
 from backend import cost as cost_module
 from backend import fal as fal_module
+from backend import openrouter
 from backend import settings
 from backend.pipeline import public_error
 
@@ -303,7 +306,8 @@ def create_job(image_path: Path) -> str:
     with _lock:
         _save({
             "id": spec_id, "status": "queued", "error": None, "name": None, "spec": None,
-            "issues": [], "rounds": 0, "visual_rounds": 0, "cost_usd": 0.0, "model": settings.spec_model(),
+            "issues": [], "rounds": 0, "visual_rounds": 0, "cost_usd": 0.0,
+            "cost_estimated": False, "model": settings.spec_model(),
             "image_path": str(image_path), "image_url": None, "created_at": _utcnow(),
         })
     return spec_id
@@ -342,6 +346,7 @@ def create_agent_spec(spec: dict) -> dict:
         "rounds": 0,
         "visual_rounds": 0,
         "cost_usd": 0.0,
+        "cost_estimated": False,
         "model": None,
         "image_path": None,
         "image_url": None,
@@ -377,17 +382,46 @@ def recover_interrupted() -> int:
     return count
 
 
-async def _ask(spec_id: str, image_urls: list[str], prompt: str, spent: float) -> tuple[str, float]:
+def _data_url(path: Path) -> str:
+    """Encode une image locale sans l'envoyer vers un stockage tiers."""
+    mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
+
+
+async def _ask(
+    spec_id: str,
+    image_urls: list[str],
+    prompt: str,
+    spent: float,
+    cost_estimated: bool,
+) -> tuple[str, float, bool]:
     """Un appel au modele ; le cout reel s'ajoute au total de la creation."""
-    text, cost = await fal_module.describe_image(image_urls, system_prompt(), prompt)
+    if settings.vision_provider() == "openrouter":
+        text, cost, call_estimated = await openrouter.describe_image(
+            image_urls, system_prompt(), prompt
+        )
+    else:
+        text, cost = await fal_module.describe_image(image_urls, system_prompt(), prompt)
+        call_estimated = False
     spent += cost
-    _update(spec_id, cost_usd=round(spent, 4))
-    return text, spent
+    cost_estimated = cost_estimated or call_estimated
+    _update(
+        spec_id,
+        cost_usd=round(spent, 4),
+        cost_estimated=cost_estimated,
+    )
+    return text, spent, cost_estimated
 
 
 async def _until_checked(
-    spec_id: str, image_urls: list[str], text: str, calls_left: int, spent: float
-) -> tuple[dict | None, list[dict], float, int]:
+    spec_id: str,
+    image_urls: list[str],
+    text: str,
+    calls_left: int,
+    spent: float,
+    cost_estimated: bool,
+) -> tuple[dict | None, list[dict], float, int, bool]:
     """Lit la fiche de `text` et la verifie ; tant qu'il reste des problemes et des
     appels, renvoie le rapport au modele. Retourne (fiche ou None, rapport, cout, appels faits)."""
     spec: dict | None = None
@@ -403,26 +437,44 @@ async def _until_checked(
             spec["id"] = wobnimo_id(spec_id)  # identifiant stable, quel que soit ce qu'ecrit le modele
             issues = (await asyncio.to_thread(check_spec, spec))["issues"]
             if _counts(issues) == (0, 0):
-                return spec, issues, spent, calls
+                return spec, issues, spent, calls, cost_estimated
             prompt = fix_prompt(spec, issues)
         if calls >= calls_left:
-            return spec, issues, spent, calls
-        text, spent = await _ask(spec_id, image_urls, prompt, spent)
+            return spec, issues, spent, calls, cost_estimated
+        text, spent, cost_estimated = await _ask(
+            spec_id, image_urls, prompt, spent, cost_estimated
+        )
         calls += 1
 
 
 async def run_job(spec_id: str, reserved_usd: float) -> dict:
     """Image -> fiche -> verificateur -> comparaison du rendu avec l'image, puis cout reel."""
     spent = 0.0
+    cost_estimated = False
     try:
         job = _update(spec_id, status="running")
-        image_url = await fal_module.upload_character_image(Path(job["image_path"]))
-        _update(spec_id, image_url=image_url)
+        source = Path(job["image_path"])
+        if settings.vision_provider() == "openrouter":
+            image_url = _data_url(source)
+        else:
+            image_url = await fal_module.upload_character_image(source)
+            _update(spec_id, image_url=image_url)
 
         # 1. Le modele ecrit la fiche ; le verificateur la corrige jusqu'a ce qu'elle tienne.
-        text, spent = await _ask(spec_id, [image_url], first_prompt(wobnimo_id(spec_id)), spent)
-        spec, issues, spent, calls = await _until_checked(
-            spec_id, [image_url], text, settings.SPEC_MAX_ROUNDS - 1, spent
+        text, spent, cost_estimated = await _ask(
+            spec_id,
+            [image_url],
+            first_prompt(wobnimo_id(spec_id)),
+            spent,
+            cost_estimated,
+        )
+        spec, issues, spent, calls, cost_estimated = await _until_checked(
+            spec_id,
+            [image_url],
+            text,
+            settings.SPEC_MAX_ROUNDS - 1,
+            spent,
+            cost_estimated,
         )
         _update(spec_id, rounds=1 + calls, spec=spec, issues=issues,
                 name=str((spec or {}).get("name") or "Mascotte"))
@@ -437,27 +489,52 @@ async def run_job(spec_id: str, reserved_usd: float) -> dict:
         while visual < settings.SPEC_VISUAL_ROUNDS:
             try:
                 sheet = await asyncio.to_thread(render_sheet, spec, _dir() / f"{spec_id}-rendu-{visual + 1}.png")
-                render_url = await fal_module.upload_character_image(sheet)
+                if settings.vision_provider() == "openrouter":
+                    render_url = _data_url(sheet)
+                else:
+                    render_url = await fal_module.upload_character_image(sheet)
             except RenderError as exc:
                 log.warning("personnage 3D %s : comparaison sautee, rendu impossible (%s)", spec_id, exc)
                 break
             visual += 1
-            text, spent = await _ask(spec_id, [image_url, render_url], visual_prompt(spec), spent)
+            text, spent, cost_estimated = await _ask(
+                spec_id,
+                [image_url, render_url],
+                visual_prompt(spec),
+                spent,
+                cost_estimated,
+            )
             _update(spec_id, visual_rounds=visual)
             if matches_reference(text):
                 break
-            candidate, candidate_issues, spent, _ = await _until_checked(spec_id, [image_url], text, 1, spent)
+            candidate, candidate_issues, spent, _, cost_estimated = await _until_checked(
+                spec_id, [image_url], text, 1, spent, cost_estimated
+            )
             if candidate is None or _counts(candidate_issues)[0]:
                 log.warning("personnage 3D %s : correction visuelle refusee, fiche precedente gardee", spec_id)
                 break
             spec, issues = candidate, candidate_issues
             _update(spec_id, spec=spec, issues=issues, name=str(spec.get("name") or "Mascotte"))
 
-        return _update(spec_id, status="done", error=None, spec=spec, issues=issues, cost_usd=round(spent, 4))
+        return _update(
+            spec_id,
+            status="done",
+            error=None,
+            spec=spec,
+            issues=issues,
+            cost_usd=round(spent, 4),
+            cost_estimated=cost_estimated,
+        )
     except Exception as exc:
         log.exception("personnage 3D %s : echec", spec_id)
         message = str(exc) if isinstance(exc, Image3DError) else public_error(exc)
-        return _update(spec_id, status="failed", error=message, cost_usd=round(spent, 4))
+        return _update(
+            spec_id,
+            status="failed",
+            error=message,
+            cost_usd=round(spent, 4),
+            cost_estimated=cost_estimated,
+        )
     finally:
         cost_module.release(reserved_usd)
         cost_module.add_spend(round(spent, 4))
