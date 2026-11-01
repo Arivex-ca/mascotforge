@@ -10,6 +10,38 @@ Trois styles, un seul widget `<mascot-avatar>` et une seule API `play(etat)` :
 - **Blob en code** : Blob Atelier (Victoria Wu, MIT), gratuit et instantané.
 - **3D en code** : Wobnimo (Pourya Akhbari, MIT), 20 personnages, gratuit et instantané.
 
+## Galerie
+
+Tout ce qui suit a été produit par MascotForge.
+
+**Vidéo IA** : le robot Arivex, à partir d'une seule image, en 4 états (repos,
+réflexion, parole, panne). Fond transparent, boucles sans saut ; ici posé sur
+un fond crème. Coût : 1,01 $ pour les 4 états.
+
+![Le robot Arivex en vidéo : repos, réflexion, parole, panne](docs/media/robot-video-etats.gif)
+
+**Suivi du curseur** : un clip de 8 s où seule la tête regarde dans les 4
+directions ; au repos, le widget affiche l'image qui regarde vers la souris.
+
+![La tête du robot qui regarde à gauche, à droite, en haut et en bas](docs/media/robot-suivi-curseur.gif)
+
+**Mascottes en code** : 4 blobs de Blob Atelier et 4 personnages de Wobnimo,
+réglés dans le studio, chacun dans un état différent. Gratuits, animés en
+direct dans le navigateur, ils suivent le curseur.
+
+![Quatre blobs et quatre personnages 3D dans le widget MascotForge](docs/media/mascottes-en-code.png)
+
+**Personnage 3D depuis une image** : à gauche l'image d'origine, puis deux
+personnages Wobnimo écrits par un modèle d'après cette image (Visor, puis
+Glimmer avec la comparaison visuelle). C'est une interprétation dans le style
+Wobnimo, pas une copie : environ 0,13 à 0,40 $ par personnage.
+
+![L'image du robot, puis ses deux interprétations en 3D](docs/media/image-vers-3d.png)
+
+Le même personnage dans ses 10 humeurs, sous 4 angles :
+
+![Le personnage 3D Glimmer : angles, gros plan et humeurs](docs/media/personnage-3d-humeurs.png)
+
 Pipeline :
 
 1. Personnage : image envoyée (PNG détouré conseillé) ou prompt texte. Flux
@@ -207,6 +239,18 @@ fal.ai est mocké : aucun appel réseau, aucun cent dépensé. `tests/test_alpha
 lance le vrai ffmpeg sur un clip synthétique. `tests/test_widget_chromium.py`
 saute si Playwright n'est pas installé ; `widget/smoke.html` se lance dans un
 navigateur.
+
+## Licence
+
+MascotForge est sous licence MIT (voir `LICENSE`) : tu peux l'utiliser, le
+modifier, le redistribuer et le vendre, à condition de garder la mention de
+copyright et le texte de la licence. Le widget porte cette mention en tête ;
+elle part donc dans chaque export.
+
+Les moteurs tiers de `engines/` gardent leur propre licence MIT, celle de leurs
+auteurs : Blob Atelier (Victoria Wu) et Wobnimo (Pourya Akhbari). Leurs
+fichiers `LICENSE` restent à côté d'eux et partent dans chaque export qui les
+utilise (voir `engines/README.md`).
 
 ## Fichiers
 

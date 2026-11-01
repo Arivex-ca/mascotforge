@@ -1,5 +1,8 @@
 /* mascot-avatar.js
  * MascotForge widget: zero-dependency Web Component.
+ * MIT License, Copyright (c) 2026 Darius Tokam. Full text: LICENSE in the
+ * MascotForge repository. The engines this widget can load keep their own
+ * MIT licenses (engines/LICENSE next to them).
  * <mascot-avatar manifest="manifest.json"></mascot-avatar>
  * Plays one video clip per mascot state. The states come from the manifest:
  * any names, any number.
