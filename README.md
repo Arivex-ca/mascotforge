@@ -88,6 +88,71 @@ que les variables d'environnement).
 - Studio : `http://localhost:8766/`
 - Widget et démo : `http://localhost:8766/widget/`
 
+## Pour les agents
+
+La CLI et le serveur MCP utilisent l'API existante. Le serveur MascotForge
+garde la clé fal.ai, le plafond mensuel, les coûts et les créations. Configure
+son adresse avec `MASCOTFORGE_URL`, par défaut `http://localhost:8766`.
+
+### CLI
+
+```bash
+python -m mascotforge styles
+python -m mascotforge code --engine blob --set shape=cloud --out ./mon-blob
+python -m mascotforge code --engine 3d --set character=volt --out ./mon-robot
+python -m mascotforge image3d ./robot.png --out ./robot-3d
+python -m mascotforge video --image ./robot.png --usage agent --out ./robot-video
+python -m mascotforge video --prompt "un petit renard orange" --usage site --out ./renard
+python -m mascotforge status ID
+python -m mascotforge export ID --out ./export
+python -m mascotforge cost
+```
+
+Ajoute `--json` à une commande pour recevoir une sortie lisible par un agent.
+Les commandes `image3d` et `video` sont payantes. Sans `--yes`, elles affichent
+le prix estimé et quittent avec un code non nul avant tout lancement. Relance la
+commande avec `--yes` seulement après l'accord de l'utilisateur.
+
+### MCP en stdio
+
+```bash
+python -m mascotforge mcp
+```
+
+Les créations longues sont séparées en trois appels :
+`mascotforge_video_start` ou `mascotforge_image3d_start`, puis
+`mascotforge_status`, puis `mascotforge_export`. Les outils de démarrage
+payants demandent `user_confirmed=true`. Leur description impose d'obtenir
+l'accord explicite de l'utilisateur après annonce du prix.
+
+Configuration Claude Desktop dans `%APPDATA%\Claude\claude_desktop_config.json` :
+
+```json
+{
+  "mcpServers": {
+    "mascotforge": {
+      "command": "C:\\Users\\Darius\\Desktop\\text-to-mascot\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "mascotforge", "mcp"],
+      "env": {"MASCOTFORGE_URL": "http://localhost:8766"}
+    }
+  }
+}
+```
+
+Configuration Cursor dans `.cursor/mcp.json` :
+
+```json
+{
+  "mcpServers": {
+    "mascotforge": {
+      "command": "C:\\Users\\Darius\\Desktop\\text-to-mascot\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "mascotforge", "mcp"],
+      "env": {"MASCOTFORGE_URL": "http://localhost:8766"}
+    }
+  }
+}
+```
+
 ## API
 
 | Méthode | Route | Description |
