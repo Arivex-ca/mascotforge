@@ -49,6 +49,14 @@ class SpecNotFoundError(LookupError):
     pass
 
 
+class AgentSpecValidationError(ValueError):
+    """Fiche ecrite par un agent qui contient encore des erreurs."""
+
+    def __init__(self, issues: list[dict]) -> None:
+        super().__init__("La fiche Wobnimo contient encore des erreurs.")
+        self.issues = issues
+
+
 # ---------------------------------------------------------------------------
 # Node et le verificateur Wobnimo
 # ---------------------------------------------------------------------------
@@ -131,9 +139,44 @@ def _counts(issues: list[dict]) -> tuple[int, int]:
     return errors, warnings
 
 
+def _agent_spec(spec: dict, spec_id: str) -> dict:
+    """Copie une fiche JSON et remplace son identifiant par celui du serveur."""
+    normalized = json.loads(json.dumps(spec))
+    normalized["id"] = wobnimo_id(spec_id)
+    return normalized
+
+
 # ---------------------------------------------------------------------------
 # Ce que lit le modele
 # ---------------------------------------------------------------------------
+@lru_cache(maxsize=1)
+def agent_guide() -> str:
+    """Guide autonome donne aux agents qui ecrivent eux-memes une fiche."""
+    skill = settings.engines_dir() / "wobnimo" / "skill"
+    guide = (skill / "SKILL.md").read_text(encoding="utf-8")
+    reference = (skill / "spec.md").read_text(encoding="utf-8")
+    example = (skill / "volt.json").read_text(encoding="utf-8")
+    return (
+        "# Creer gratuitement une fiche Wobnimo dans MascotForge\n\n"
+        "Boucle obligatoire : regarde l'image de reference, lis ce guide, ecris une fiche, "
+        "lance le check, affiche la planche, compare sa vue de face a l'image, corrige, puis "
+        "enregistre ou exporte. Recommence le check et la preview apres chaque correction.\n\n"
+        "Regles propres a MascotForge :\n"
+        "- Le serveur impose l'identifiant final. La valeur `id` envoyee est ignoree.\n"
+        "- La fiche est un objet JSON pur. Aucun code, commentaire, fonction ou expression.\n"
+        "- La fiche doit contenir une liste `parts`.\n"
+        "- La planche place la vue de face au repos en haut a gauche. C'est la vue principale "
+        "a comparer a l'image de reference.\n"
+        "- Le moteur dessine lui-meme les yeux et la bouche de l'ecran LED. Ne tente pas de "
+        "reproduire leurs formes dans les pieces de la fiche.\n"
+        "- Le check mesure la geometrie, mais pas la ressemblance. La comparaison visuelle de "
+        "la preview reste indispensable.\n\n"
+        f"<wobnimo-skill>\n{guide}\n</wobnimo-skill>\n\n"
+        f"<wobnimo-spec-reference>\n{reference}\n</wobnimo-spec-reference>\n\n"
+        f"<volt-example>\n{example}\n</volt-example>\n"
+    )
+
+
 @lru_cache(maxsize=1)
 def system_prompt() -> str:
     skill = settings.engines_dir() / "wobnimo" / "skill"
@@ -264,6 +307,49 @@ def create_job(image_path: Path) -> str:
             "image_path": str(image_path), "image_url": None, "created_at": _utcnow(),
         })
     return spec_id
+
+
+def check_agent_spec(spec: dict, spec_id: str = "agent-draft") -> dict:
+    """Verifie une fiche d'agent avec un identifiant controle par le serveur."""
+    return check_spec(_agent_spec(spec, spec_id))
+
+
+def render_agent_sheet(spec: dict) -> bytes:
+    """Rend la planche d'une fiche d'agent et renvoie son PNG."""
+    with tempfile.TemporaryDirectory(prefix="mascotforge-agent-rendu-") as tmp:
+        out = Path(tmp) / "planche.png"
+        render_sheet(_agent_spec(spec, "agent-draft"), out)
+        return out.read_bytes()
+
+
+def create_agent_spec(spec: dict) -> dict:
+    """Verifie et conserve gratuitement une fiche ecrite par un agent."""
+    spec_id = uuid.uuid4().hex[:12]
+    normalized = _agent_spec(spec, spec_id)
+    report = check_spec(normalized)
+    issues = report["issues"]
+    errors, _warnings = _counts(issues)
+    if errors:
+        raise AgentSpecValidationError(issues)
+    job = {
+        "id": spec_id,
+        "source": "agent",
+        "status": "done",
+        "error": None,
+        "name": str(normalized.get("name") or "Mascotte"),
+        "spec": normalized,
+        "issues": issues,
+        "rounds": 0,
+        "visual_rounds": 0,
+        "cost_usd": 0.0,
+        "model": None,
+        "image_path": None,
+        "image_url": None,
+        "created_at": _utcnow(),
+    }
+    with _lock:
+        _save(job)
+    return job
 
 
 def image_path_for(suffix: str) -> Path:

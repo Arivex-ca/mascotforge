@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import Image, MCPServer
 
 from mascotforge.cli import IMAGE3D_MAX_USD, IMAGE3D_MIN_USD
 from mascotforge.client import MascotForgeClient
@@ -13,8 +13,15 @@ mcp = MCPServer(
     "MascotForge",
     instructions=(
         "Cree et exporte des mascottes par le serveur MascotForge. "
+        "Pour une fiche Wobnimo gratuite, suivez toute la boucle guide, image de reference, "
+        "check, preview, correction, puis save ou export. "
         "Demandez toujours l'accord explicite de l'utilisateur avant un outil payant."
     ),
+)
+
+SPEC_LOOP = (
+    "Boucle gratuite obligatoire : lire le guide, regarder l'image de reference, ecrire la fiche, "
+    "lancer le check, regarder la preview, la comparer a l'image, corriger, puis save ou export. "
 )
 
 
@@ -47,6 +54,41 @@ def mascotforge_code(
 ) -> dict[str, Any]:
     with MascotForgeClient() as client:
         return client.export_code(engine, config or {}, Path(out))
+
+
+@mcp.tool(description=SPEC_LOOP + "Renvoie le guide Wobnimo complet et l'exemple Volt.")
+def mascotforge_spec_guide() -> dict[str, str]:
+    with MascotForgeClient() as client:
+        return {"guide": client.spec_guide()}
+
+
+@mcp.tool(description=SPEC_LOOP + "Verifie la geometrie de la fiche JSON sans la conserver.")
+def mascotforge_spec_check(spec: dict[str, Any]) -> dict[str, Any]:
+    with MascotForgeClient() as client:
+        return client.spec_check(spec)
+
+
+@mcp.tool(
+    description=(
+        SPEC_LOOP
+        + "Rend la planche Wobnimo comme contenu image MCP. La vue de face est en haut a gauche."
+    )
+)
+def mascotforge_spec_preview(spec: dict[str, Any]) -> Image:
+    with MascotForgeClient() as client:
+        return Image(data=client.spec_preview(spec), format="png")
+
+
+@mcp.tool(description=SPEC_LOOP + "Verifie et conserve la fiche terminee a cout nul.")
+def mascotforge_spec_save(spec: dict[str, Any]) -> dict[str, Any]:
+    with MascotForgeClient() as client:
+        return client.spec_save(spec)
+
+
+@mcp.tool(description=SPEC_LOOP + "Verifie, conserve et exporte la fiche dans un dossier local.")
+def mascotforge_spec_export(spec: dict[str, Any], out: str) -> dict[str, Any]:
+    with MascotForgeClient() as client:
+        return client.spec_export(spec, Path(out))
 
 
 @mcp.tool(

@@ -31,7 +31,7 @@ class MascotForgeClient:
         self,
         base_url: str | None = None,
         http_client: httpx.Client | None = None,
-        timeout: float = 120.0,
+        timeout: float = 240.0,
     ) -> None:
         self.base_url = (base_url or os.getenv("MASCOTFORGE_URL") or DEFAULT_URL).rstrip("/")
         parsed = urlparse(self.base_url)
@@ -92,6 +92,30 @@ class MascotForgeClient:
             "POST", f"/api/engines/{engine}/export", json={"config": config}
         )
         return self._download_and_extract(exported, out)
+
+    def spec_guide(self) -> str:
+        body = self._json("GET", "/api/engines/3d/guide")
+        guide = body.get("guide")
+        if not isinstance(guide, str) or not guide:
+            raise MascotForgeError("Le serveur MascotForge n'a pas fourni le guide Wobnimo.")
+        return guide
+
+    def spec_check(self, spec: dict) -> dict:
+        return self._json("POST", "/api/engines/3d/specs/check", json={"spec": spec})
+
+    def spec_preview(self, spec: dict) -> bytes:
+        response = self._request("POST", "/api/engines/3d/specs/preview", json={"spec": spec})
+        if response.headers.get("content-type", "").split(";", 1)[0] != "image/png":
+            raise MascotForgeError("Le serveur MascotForge n'a pas renvoye une planche PNG.")
+        return response.content
+
+    def spec_save(self, spec: dict) -> dict:
+        return self._json("POST", "/api/engines/3d/specs", json={"spec": spec})
+
+    def spec_export(self, spec: dict, out: Path) -> dict:
+        saved = self.spec_save(spec)
+        exported = self.export_creation(saved["spec_id"], out)
+        return {**saved, **exported}
 
     def start_image3d(self, image: Path) -> dict:
         image = self._require_image(image)

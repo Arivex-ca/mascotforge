@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import uuid
 from contextlib import asynccontextmanager
@@ -10,7 +11,7 @@ from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from backend import alpha
@@ -40,6 +41,7 @@ log = logging.getLogger("mascotforge.api")
 
 ALLOWED_UPLOAD_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_AGENT_SPEC_BYTES = 200 * 1024
 
 # Les taches de fond doivent rester referencees, sinon le ramasse-miettes
 # peut les supprimer en cours de route (doc asyncio.create_task).
@@ -80,6 +82,27 @@ def _start(coro) -> None:  # type: ignore[no-untyped-def]
     task = asyncio.create_task(coro)
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
+
+
+async def _agent_spec_from_request(request: Request) -> dict:
+    """Lit une fiche JSON bornee sans accepter un corps arbitrairement gros."""
+    content = bytearray()
+    async for chunk in request.stream():
+        if len(content) + len(chunk) > MAX_AGENT_SPEC_BYTES:
+            raise HTTPException(status_code=413, detail="Fiche trop lourde : 200 Ko maximum.")
+        content.extend(chunk)
+    try:
+        body = json.loads(content)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        raise HTTPException(status_code=400, detail="Le corps doit etre un objet JSON valide.")
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Le corps doit etre un objet JSON.")
+    spec = body.get("spec")
+    if not isinstance(spec, dict):
+        raise HTTPException(status_code=400, detail="Le champ spec doit etre un objet JSON.")
+    if not isinstance(spec.get("parts"), list):
+        raise HTTPException(status_code=400, detail="La fiche doit contenir une liste parts.")
+    return spec
 
 
 def _job_to_response(job: dict) -> JobResponse:
@@ -343,6 +366,70 @@ def api_export(job_id: str) -> ExportResponse:
 @app.get("/api/engines")
 def api_engines() -> dict:
     return engines_module.public_catalog()
+
+
+@app.get("/api/engines/3d/guide")
+def api_agent_spec_guide() -> dict:
+    """Guide complet pour un agent qui ecrit lui-meme une fiche Wobnimo."""
+    return {"guide": image3d.agent_guide()}
+
+
+def _require_wobnimo_checker() -> None:
+    if not image3d.available():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Le verificateur Wobnimo est indisponible. "
+                "Installez Node 18 ou plus et verifiez le moteur Wobnimo."
+            ),
+        )
+
+
+@app.post("/api/engines/3d/specs/check")
+async def api_agent_spec_check(request: Request) -> dict:
+    """Verifie gratuitement une fiche Wobnimo ecrite par un agent."""
+    spec = await _agent_spec_from_request(request)
+    _require_wobnimo_checker()
+    try:
+        return await asyncio.to_thread(image3d.check_agent_spec, spec)
+    except image3d.Image3DError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@app.post("/api/engines/3d/specs/preview")
+async def api_agent_spec_preview(request: Request) -> Response:
+    """Rend gratuitement la planche PNG d'une fiche Wobnimo."""
+    spec = await _agent_spec_from_request(request)
+    _require_wobnimo_checker()
+    try:
+        content = await asyncio.to_thread(image3d.render_agent_sheet, spec)
+    except image3d.RenderError:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Rendu Wobnimo impossible : aucun navigateur Chrome ou Edge utilisable "
+                "n'a pu terminer la planche."
+            ),
+        )
+    return Response(content=content, media_type="image/png")
+
+
+@app.post("/api/engines/3d/specs")
+async def api_agent_spec_save(request: Request):  # type: ignore[no-untyped-def]
+    """Verifie et conserve gratuitement une fiche Wobnimo ecrite par un agent."""
+    spec = await _agent_spec_from_request(request)
+    _require_wobnimo_checker()
+    try:
+        job = await asyncio.to_thread(image3d.create_agent_spec, spec)
+    except image3d.AgentSpecValidationError as exc:
+        return JSONResponse(
+            status_code=422,
+            content={"detail": str(exc), "issues": exc.issues},
+        )
+    except image3d.Image3DError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    warnings = [issue for issue in job["issues"] if issue.get("level") == "warning"]
+    return {"spec_id": job["id"], "name": job["name"], "warnings": warnings}
 
 
 @app.post("/api/engines/3d/from-image")

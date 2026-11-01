@@ -108,6 +108,29 @@ python -m mascotforge export ID --out ./export
 python -m mascotforge cost
 ```
 
+### Boucle gratuite : l'agent dessine lui-meme
+
+Un agent capable de voir l'image peut ecrire directement la fiche Wobnimo, sans
+appel a fal.ai et sans cout. Le serveur conserve le verificateur, le rendu, Node
+et le stockage. La boucle est volontairement visuelle :
+
+1. Regarder l'image de reference et lire le guide.
+2. Ecrire la fiche JSON, puis lancer le check.
+3. Generer la planche et comparer sa vue de face, en haut a gauche, a l'image.
+4. Corriger et recommencer le check et la preview.
+5. Enregistrer la fiche ou l'exporter quand elle est juste.
+
+```bash
+python -m mascotforge spec guide --out ./guide-wobnimo.md
+python -m mascotforge spec check ./personnage.json
+python -m mascotforge spec preview ./personnage.json --out ./planche.png
+python -m mascotforge spec save ./personnage.json
+python -m mascotforge spec export ./personnage.json --out ./personnage-3d
+```
+
+Ces commandes sont gratuites et ne demandent pas `--yes`. La commande
+`image3d` reste l'option payante dans laquelle un modele fal.ai ecrit la fiche.
+
 Ajoute `--json` à une commande pour recevoir une sortie lisible par un agent.
 Les commandes `image3d` et `video` sont payantes. Sans `--yes`, elles affichent
 le prix estimé et quittent avec un code non nul avant tout lancement. Relance la
@@ -124,6 +147,12 @@ Les créations longues sont séparées en trois appels :
 `mascotforge_status`, puis `mascotforge_export`. Les outils de démarrage
 payants demandent `user_confirmed=true`. Leur description impose d'obtenir
 l'accord explicite de l'utilisateur après annonce du prix.
+
+Les outils gratuits `mascotforge_spec_guide`, `mascotforge_spec_check`,
+`mascotforge_spec_preview`, `mascotforge_spec_save` et
+`mascotforge_spec_export` suivent la meme boucle. La preview revient comme une
+image MCP afin que l'agent voie la planche, la compare a l'image de reference et
+corrige lui-meme la fiche avant de l'enregistrer.
 
 Configuration Claude Desktop dans `%APPDATA%\Claude\claude_desktop_config.json` :
 

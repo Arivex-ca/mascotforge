@@ -32,6 +32,21 @@ def build_parser() -> argparse.ArgumentParser:
     code.add_argument("--set", action="append", default=[], metavar="CLE=VALEUR")
     code.add_argument("--out", required=True, type=Path, metavar="DOSSIER")
 
+    spec = commands.add_parser("spec", help="ecrit et exporte gratuitement une fiche Wobnimo")
+    spec_commands = spec.add_subparsers(dest="spec_command", required=True)
+    spec_guide = spec_commands.add_parser("guide", help="affiche le guide complet pour un agent")
+    spec_guide.add_argument("--out", type=Path, metavar="FICHIER")
+    spec_check = spec_commands.add_parser("check", help="verifie une fiche JSON")
+    spec_check.add_argument("file", type=Path, metavar="FICHIER.json")
+    spec_preview = spec_commands.add_parser("preview", help="rend la planche PNG d'une fiche")
+    spec_preview.add_argument("file", type=Path, metavar="FICHIER.json")
+    spec_preview.add_argument("--out", required=True, type=Path, metavar="PLANCHE.png")
+    spec_save = spec_commands.add_parser("save", help="enregistre une fiche verifiee")
+    spec_save.add_argument("file", type=Path, metavar="FICHIER.json")
+    spec_export = spec_commands.add_parser("export", help="enregistre et exporte une fiche")
+    spec_export.add_argument("file", type=Path, metavar="FICHIER.json")
+    spec_export.add_argument("--out", required=True, type=Path, metavar="DOSSIER")
+
     image3d = commands.add_parser("image3d", help="cree un personnage Wobnimo depuis une image")
     image3d.add_argument("image", type=Path, metavar="IMAGE")
     image3d.add_argument("--out", required=True, type=Path, metavar="DOSSIER")
@@ -74,6 +89,18 @@ def _money(value: float) -> str:
     return f"{value:.2f}".replace(".", ",") + " $ US"
 
 
+def _load_spec(path: Path) -> dict:
+    try:
+        spec = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise MascotForgeError(f"Fiche introuvable : {path}") from exc
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise MascotForgeError(f"La fiche {path} n'est pas un fichier JSON lisible.") from exc
+    if not isinstance(spec, dict):
+        raise MascotForgeError("La fiche doit etre un objet JSON.")
+    return spec
+
+
 def _emit(data: dict, json_mode: bool) -> None:
     if json_mode:
         print(json.dumps(data, ensure_ascii=False, sort_keys=True))
@@ -101,6 +128,22 @@ def _emit(data: dict, json_mode: bool) -> None:
         print(f"Personnage 3D depuis une image: environ {_money(IMAGE3D_MIN_USD)} a {_money(IMAGE3D_MAX_USD)}")
     elif kind == "confirmation":
         print(data["message"])
+    elif kind == "spec-guide":
+        if data.get("out"):
+            print(f"Guide enregistre dans {data['out']}")
+        else:
+            print(data["guide"])
+    elif kind == "spec-check":
+        print("Fiche valide." if data["ok"] else "Fiche invalide.")
+        for issue in data.get("issues", []):
+            print(f"  {issue.get('level', 'issue')} {issue.get('where', 'spec')}: {issue.get('message', '')}")
+            if issue.get("fix"):
+                print(f"    Correction: {issue['fix']}")
+    elif kind == "spec-preview":
+        print(f"Planche enregistree dans {data['out']}")
+    elif kind == "spec-save":
+        print(f"Fiche enregistree : {data['spec_id']} ({data['name']})")
+        print(f"Avertissements: {len(data.get('warnings', []))}")
     elif kind == "export":
         print(f"Export extrait dans {data['out']}")
         print(f"Fichiers: {len(data.get('files', []))}")
@@ -178,6 +221,43 @@ def main(
                 "creation": "code",
                 **api.export_code(args.engine, _settings(args.set), args.out),
             }
+        elif args.command == "spec":
+            if args.spec_command == "guide":
+                guide = api.spec_guide()
+                out = None
+                if args.out is not None:
+                    args.out.parent.mkdir(parents=True, exist_ok=True)
+                    args.out.write_text(guide, encoding="utf-8")
+                    out = str(args.out.resolve())
+                result = {"ok": True, "kind": "spec-guide", "guide": guide, "out": out}
+            elif args.spec_command == "check":
+                checked = api.spec_check(_load_spec(args.file))
+                result = {"kind": "spec-check", **checked}
+                _emit(result, json_mode)
+                return 0 if checked.get("ok") else 2
+            elif args.spec_command == "preview":
+                content = api.spec_preview(_load_spec(args.file))
+                args.out.parent.mkdir(parents=True, exist_ok=True)
+                args.out.write_bytes(content)
+                result = {
+                    "ok": True,
+                    "kind": "spec-preview",
+                    "out": str(args.out.resolve()),
+                    "bytes": len(content),
+                }
+            elif args.spec_command == "save":
+                result = {
+                    "ok": True,
+                    "kind": "spec-save",
+                    **api.spec_save(_load_spec(args.file)),
+                }
+            else:
+                result = {
+                    "ok": True,
+                    "kind": "export",
+                    "creation": "spec",
+                    **api.spec_export(_load_spec(args.file), args.out),
+                }
         elif args.command == "image3d":
             if not args.yes:
                 result = _confirmation(
