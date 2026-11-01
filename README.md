@@ -42,6 +42,20 @@ Le même personnage dans ses 10 humeurs, sous 4 angles :
 
 ![Le personnage 3D Glimmer : angles, gros plan et humeurs](docs/media/personnage-3d-humeurs.png)
 
+### Le studio
+
+![Accueil du studio MascotForge](docs/media/studio-accueil.png)
+
+![Choix du parcours dans le studio](docs/media/studio-choix.png)
+
+![Intégration finale d'une mascotte](docs/media/studio-final.png)
+
+![Réglages des clés dans le studio](docs/media/studio-reglages.png)
+
+![Panneau Pour les agents](docs/media/studio-agents.png)
+
+![Configuration MCP pour Codex CLI et l'application Codex](docs/media/studio-agents-codex.png)
+
 Pipeline :
 
 1. Personnage : image envoyée (PNG détouré conseillé) ou prompt texte. Flux
@@ -206,6 +220,45 @@ Configuration Cursor dans `.cursor/mcp.json` :
   }
 }
 ```
+
+Configuration Codex CLI et application dans `~/.codex/config.toml` :
+
+```toml
+[mcp_servers.mascotforge]
+command = 'C:\Users\Darius\Desktop\text-to-mascot\.venv\Scripts\python.exe'
+args = ["-m", "mascotforge", "mcp"]
+cwd = 'C:\Users\Darius\Desktop\text-to-mascot'
+env = { MASCOTFORGE_URL = "http://localhost:8766" }
+```
+
+Le CLI et l'application Codex lisent le même fichier. Le format de Codex CLI
+0.144.6 accepte `cwd`. Sa commande `codex mcp add` ne propose pas de drapeau
+`--cwd`, donc le bloc TOML reste la configuration complète. Si tu retires
+`cwd`, ajoute `PYTHONPATH = 'C:\Users\Darius\Desktop\text-to-mascot'` dans
+la table `env` pour que Python trouve le module depuis un autre dossier.
+
+### Skill Agent Skills
+
+Le skill source se trouve dans `skills/mascotforge/SKILL.md`. Il guide un agent
+vers le parcours gratuit adapté, impose la boucle visuelle pour une fiche 3D
+et bloque toute création payante avant l'estimation et l'accord explicite.
+
+Installe-le pour Claude et les agents compatibles Agent Skills dans le dossier
+courant :
+
+```bash
+python -m mascotforge skill
+```
+
+Pour viser un autre projet :
+
+```bash
+python -m mascotforge skill --dir DOSSIER
+```
+
+La commande copie le skill dans `.claude/skills/mascotforge/` et
+`.agents/skills/mascotforge/`. Elle conserve tout fichier local modifié. Utilise
+`--force` seulement si l'utilisateur confirme son remplacement.
 
 ## API
 
@@ -396,3 +449,4 @@ utilise (voir `engines/README.md`).
 - `engines/` : Blob Atelier et Wobnimo, non modifiés, avec leurs licences MIT
 - `widget/mascot-avatar.js` : le composant web
 - `studio/` : l'interface de création
+- `skills/mascotforge/` : skill Agent Skills pour créer et intégrer une mascotte

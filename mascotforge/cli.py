@@ -11,6 +11,11 @@ from mascotforge.client import MascotForgeClient, MascotForgeError
 
 IMAGE3D_MIN_USD = 0.15
 IMAGE3D_MAX_USD = 0.60
+SKILL_SOURCE = Path(__file__).resolve().parents[1] / "skills" / "mascotforge" / "SKILL.md"
+SKILL_TARGETS = (
+    Path(".claude") / "skills" / "mascotforge" / "SKILL.md",
+    Path(".agents") / "skills" / "mascotforge" / "SKILL.md",
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -68,6 +73,14 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--out", required=True, type=Path, metavar="DOSSIER")
 
     commands.add_parser("cost", help="affiche les couts et le plafond du serveur")
+
+    skill = commands.add_parser("skill", help="installe le skill MascotForge pour les agents")
+    skill.add_argument("--dir", type=Path, default=Path("."), metavar="DOSSIER")
+    skill.add_argument(
+        "--force",
+        action="store_true",
+        help="remplace un skill local modifie",
+    )
     return parser
 
 
@@ -99,6 +112,55 @@ def _load_spec(path: Path) -> dict:
     if not isinstance(spec, dict):
         raise MascotForgeError("La fiche doit etre un objet JSON.")
     return spec
+
+
+def _install_skill(target: Path, force: bool) -> dict:
+    root = target.resolve()
+    if not root.is_dir():
+        raise MascotForgeError(f"Dossier cible introuvable : {root}")
+    try:
+        content = SKILL_SOURCE.read_bytes()
+    except OSError as exc:
+        raise MascotForgeError("Le skill MascotForge source est introuvable.") from exc
+
+    destinations = [root / relative for relative in SKILL_TARGETS]
+    conflicts: list[Path] = []
+    for destination in destinations:
+        if not destination.exists():
+            continue
+        try:
+            current = destination.read_bytes()
+        except OSError as exc:
+            raise MascotForgeError(f"Impossible de lire le skill local : {destination}") from exc
+        if current != content:
+            conflicts.append(destination)
+
+    if conflicts and not force:
+        paths = ", ".join(str(path) for path in conflicts)
+        raise MascotForgeError(
+            f"Skill local modifié, aucun fichier remplacé : {paths}. "
+            "Relancez avec --force pour confirmer."
+        )
+
+    installed = 0
+    unchanged = 0
+    for destination in destinations:
+        if destination.exists() and destination.read_bytes() == content:
+            unchanged += 1
+            continue
+        try:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(content)
+        except OSError as exc:
+            raise MascotForgeError(f"Impossible d'installer le skill dans {destination}") from exc
+        installed += 1
+
+    return {
+        "root": str(root),
+        "destinations": [str(path) for path in destinations],
+        "installed": installed,
+        "unchanged": unchanged,
+    }
 
 
 def _emit(data: dict, json_mode: bool) -> None:
@@ -161,6 +223,13 @@ def _emit(data: dict, json_mode: bool) -> None:
         print(f"Reserve: {_money(float(data['reserved_usd']))}")
         print(f"Plafond: {_money(float(data['cap_usd']))}")
         print(f"Mascottes terminees: {data['mascots_completed']}")
+    elif kind == "skill":
+        if data["installed"]:
+            print(f"Skill installé dans {data['installed']} emplacement(s) :")
+        else:
+            print("Skill déjà à jour :")
+        for destination in data["destinations"]:
+            print(f"  {destination}")
 
 
 def _confirmation(kind: str, message: str, estimate: dict) -> dict:
@@ -212,7 +281,13 @@ def main(
     own_client = client is None
     api = client or MascotForgeClient()
     try:
-        if args.command == "styles":
+        if args.command == "skill":
+            result = {
+                "ok": True,
+                "kind": "skill",
+                **_install_skill(args.dir, args.force),
+            }
+        elif args.command == "styles":
             result = {"ok": True, "kind": "styles", **api.styles()}
         elif args.command == "code":
             result = {

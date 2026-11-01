@@ -138,6 +138,13 @@ python -m mascotforge video --image ./robot.png --usage agent --out ./robot-vide
       </div>
       <pre><code id="commande-mcp-agent">python -m mascotforge mcp</code></pre>
     </div>
+    <div class="bloc-code-agent">
+      <div class="entete-code-agent">
+        <strong>Installer le skill dans ton projet</strong>
+        <button type="button" class="discret bouton-copie-agent" data-cible="commande-skill-agent">Copier</button>
+      </div>
+      <pre><code id="commande-skill-agent">python -m mascotforge skill</code></pre>
+    </div>
   </section>
 
   <section class="bloc-agent" aria-labelledby="titre-connexion-agent">
@@ -183,6 +190,22 @@ python -m mascotforge video --image ./robot.png --usage agent --out ./robot-vide
     }
   }
 }</code></pre>
+    </div>
+  </section>
+
+  <section class="bloc-agent" aria-labelledby="titre-codex-agent">
+    <h3 id="titre-codex-agent">Codex CLI et application</h3>
+    <p class="chemin-config">Les deux lisent <code>~/.codex/config.toml</code>. Codex CLI 0.144.6 accepte le champ <code>cwd</code> ci-dessous. La commande <code>codex mcp add</code> n'a pas de drapeau <code>--cwd</code>, donc utilise ce bloc. Sans <code>cwd</code>, ajoute le dépôt à <code>PYTHONPATH</code> dans <code>env</code>.</p>
+    <div class="bloc-code-agent">
+      <div class="entete-code-agent">
+        <strong>Configuration MCP</strong>
+        <button type="button" class="discret bouton-copie-agent" data-cible="config-codex-agent">Copier</button>
+      </div>
+      <pre><code id="config-codex-agent">[mcp_servers.mascotforge]
+command = 'C:\Users\Darius\Desktop\text-to-mascot\.venv\Scripts\python.exe'
+args = [&quot;-m&quot;, &quot;mascotforge&quot;, &quot;mcp&quot;]
+cwd = 'C:\Users\Darius\Desktop\text-to-mascot'
+env = { MASCOTFORGE_URL = &quot;http://localhost:8766&quot; }</code></pre>
     </div>
   </section>
   <p id="statut-copie-agents" class="statut-copie-agents" aria-live="polite"></p>

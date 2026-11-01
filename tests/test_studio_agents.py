@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = (ROOT / "studio" / "index.html").read_text(encoding="utf-8")
 STUDIO_JS = (ROOT / "studio" / "studio.js").read_text(encoding="utf-8")
+README = (ROOT / "README.md").read_text(encoding="utf-8")
 
 
 def test_agent_panel_documents_cli_and_mcp_configuration():
@@ -22,6 +23,10 @@ def test_agent_panel_documents_cli_and_mcp_configuration():
         "X-OpenRouter-Key",
         "Claude Desktop",
         "Cursor",
+        "Codex CLI et application",
+        "config.toml",
+        "[mcp_servers.mascotforge]",
+        "cwd = 'C:\\Users\\Darius\\Desktop\\text-to-mascot'",
     )
 
     assert 'id="btn-agents"' in INDEX
@@ -49,3 +54,18 @@ def test_video_estimate_is_computed_on_launch_button():
     assert "etatsEdites.length * presets.cost_per_state_usd" in STUDIO_JS
     assert '"Sans clé API et instantané"' in STUDIO_JS
 
+
+def test_readme_documents_codex_skill_and_future_studio_captures():
+    assert "[mcp_servers.mascotforge]" in README
+    assert "Codex CLI et application" in README
+    assert "python -m mascotforge skill" in README
+    assert ".claude/skills/mascotforge/" in README
+    assert ".agents/skills/mascotforge/" in README
+    for name in (
+        "studio-accueil.png",
+        "studio-choix.png",
+        "studio-final.png",
+        "studio-reglages.png",
+        "studio-agents.png",
+    ):
+        assert f"docs/media/{name}" in README

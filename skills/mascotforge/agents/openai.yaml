@@ -1,0 +1,4 @@
+interface:
+  display_name: "MascotForge"
+  short_description: "Créer et intégrer une mascotte animée"
+  default_prompt: "Utilise $mascotforge pour créer et intégrer une mascotte animée dans ce projet."
