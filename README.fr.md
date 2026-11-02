@@ -457,6 +457,9 @@ lance le vrai ffmpeg sur un clip synthétique. `tests/test_widget_chromium.py`
 saute si Playwright n'est pas installé ; `widget/smoke.html` se lance dans un
 navigateur.
 
+Pour contribuer (tickets, pull requests en français ou en anglais), voir
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Licence
 
 MascotForge est sous licence MIT (voir `LICENSE`) : tu peux l'utiliser, le

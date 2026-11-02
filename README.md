@@ -13,7 +13,8 @@ Three styles, one `<mascot-avatar>` widget, and one `play(state)` API:
 - **Code 3D**: Wobnimo by Pourya Akhbari, MIT, 20 characters, free and instant.
 
 The studio, the CLI help and the API error messages are in French for now.
-Issues and pull requests in English are welcome.
+Issues and pull requests in English are welcome: see
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Gallery
 
