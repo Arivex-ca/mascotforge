@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = (ROOT / "studio" / "index.html").read_text(encoding="utf-8")
 STUDIO_JS = (ROOT / "studio" / "studio.js").read_text(encoding="utf-8")
+STYLE = (ROOT / "studio" / "style.css").read_text(encoding="utf-8")
 README = (ROOT / "README.md").read_text(encoding="utf-8")
 
 
@@ -53,6 +54,22 @@ def test_video_estimate_is_computed_on_launch_button():
     assert '"Générer les " + etatsEdites.length + " états, environ "' in STUDIO_JS
     assert "etatsEdites.length * presets.cost_per_state_usd" in STUDIO_JS
     assert '"Sans clé API et instantané"' in STUDIO_JS
+
+
+def test_mobile_header_and_progression_wrap_without_page_overflow():
+    narrow_header = STYLE.split("@media (max-width: 430px)", 1)[1].split(
+        "@media (max-width: 390px)", 1
+    )[0]
+    mobile = STYLE.split("@media (max-width: 640px)", 1)[1].split(
+        "@media (max-width: 430px)", 1
+    )[0]
+
+    assert ".barre-haut { flex-wrap: wrap; padding-inline: 2px; }" in narrow_header
+    assert ".actions-entete { width: 100%; justify-content: flex-end; }" in narrow_header
+    assert (
+        ".progression { justify-content: flex-start; flex-wrap: wrap; "
+        "overflow-x: visible; }"
+    ) in mobile
 
 
 def test_readme_documents_codex_skill_and_future_studio_captures():
