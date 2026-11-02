@@ -1,137 +1,141 @@
 # MascotForge (text-to-mascot)
 
-Brique produit Arivex : tu décris une mascotte (ou tu envoies son image), tu
-choisis ses états d'animation, et l'outil sort une mascotte animée à fond
-transparent, prête à coller dans un site ou devant un agent IA.
+Give your AI agent a face: describe a mascot or upload an image, choose its animation states, and get an animated mascot with a transparent background, ready for your site or AI agent.
 
-Trois styles, un seul widget `<mascot-avatar>` et une seule API `play(etat)` :
+![MascotForge demo: AI video, free Blob, and free 3D mascots](docs/media/demo.gif)
 
-- **Vidéo IA** : ton personnage animé par Kling, états à la demande (pipeline ci-dessous).
-- **Blob en code** : Blob Atelier (Victoria Wu, MIT), gratuit et instantané.
-- **3D en code** : Wobnimo (Pourya Akhbari, MIT), 20 personnages, gratuit et instantané.
+[Français](README.fr.md)
 
-## Galerie
+Three styles, one `<mascot-avatar>` widget, and one `play(state)` API:
 
-Tout ce qui suit a été produit par MascotForge.
+- **AI video**: Kling animates your character with states you define through the pipeline below.
+- **Code Blob**: Blob Atelier by Victoria Wu, MIT, free and instant.
+- **Code 3D**: Wobnimo by Pourya Akhbari, MIT, 20 characters, free and instant.
 
-**Vidéo IA** : le robot Arivex, à partir d'une seule image, en 4 états (repos,
-réflexion, parole, panne). Fond transparent, boucles sans saut ; ici posé sur
-un fond crème. Coût : 1,01 $ pour les 4 états.
+## Gallery
 
-![Le robot Arivex en vidéo : repos, réflexion, parole, panne](docs/media/robot-video-etats.gif)
+MascotForge produced everything shown below.
 
-**Suivi du curseur** : un clip de 8 s où seule la tête regarde dans les 4
-directions ; au repos, le widget affiche l'image qui regarde vers la souris.
+**AI video**: the Arivex robot, built from one image, in four states: idle,
+thinking, talking, and error. It has a transparent background and seamless
+loops. The preview places it on a cream background. Cost: $1.01 for four states.
 
-![La tête du robot qui regarde à gauche, à droite, en haut et en bas](docs/media/robot-suivi-curseur.gif)
+![The Arivex robot on video in idle, thinking, talking, and error states](docs/media/robot-video-etats.gif)
 
-**Mascottes en code** : 4 blobs de Blob Atelier et 4 personnages de Wobnimo,
-réglés dans le studio, chacun dans un état différent. Gratuits, animés en
-direct dans le navigateur, ils suivent le curseur.
+**Cursor tracking**: an 8-second clip in which only the head looks in four
+directions. While idle, the widget displays the frame that looks toward the mouse.
 
-![Quatre blobs et quatre personnages 3D dans le widget MascotForge](docs/media/mascottes-en-code.png)
+![The robot head looking left, right, up, and down](docs/media/robot-suivi-curseur.gif)
 
-**Personnage 3D depuis une image** : à gauche l'image d'origine, puis deux
-personnages Wobnimo écrits par un modèle d'après cette image (Visor, puis
-Glimmer avec la comparaison visuelle). C'est une interprétation dans le style
-Wobnimo, pas une copie : environ 0,13 à 0,40 $ par personnage.
+**Code mascots**: four Blob Atelier blobs and four Wobnimo characters,
+configured in the studio, each in a different state. They are free, animate in
+the browser, and follow the cursor.
 
-![L'image du robot, puis ses deux interprétations en 3D](docs/media/image-vers-3d.png)
+![Four blobs and four 3D characters in the MascotForge widget](docs/media/mascottes-en-code.png)
 
-Le même personnage dans ses 10 humeurs, sous 4 angles :
+**3D character from an image**: the source image on the left, followed by two
+Wobnimo characters written by a model from that image: Visor, then Glimmer with
+visual comparison. The result is an interpretation in Wobnimo's style, not a
+copy. It costs about $0.13 to $0.40 per character.
 
-![Le personnage 3D Glimmer : angles, gros plan et humeurs](docs/media/personnage-3d-humeurs.png)
+![The robot image followed by two 3D interpretations](docs/media/image-vers-3d.png)
 
-### Le studio
+The same character in ten moods from four angles:
 
-![Accueil du studio MascotForge](docs/media/studio-accueil.png)
+![The Glimmer 3D character with angles, close-up, and moods](docs/media/personnage-3d-humeurs.png)
 
-![Choix du parcours dans le studio](docs/media/studio-choix.png)
+### The studio
 
-![Intégration finale d'une mascotte](docs/media/studio-final.png)
+![MascotForge studio home](docs/media/studio-accueil.png)
 
-![Réglages des clés dans le studio](docs/media/studio-reglages.png)
+![Path selection in the studio](docs/media/studio-choix.png)
 
-![Panneau Pour les agents](docs/media/studio-agents.png)
+![Final mascot integration](docs/media/studio-final.png)
 
-![Configuration MCP pour Codex CLI et l'application Codex](docs/media/studio-agents-codex.png)
+![Key settings in the studio](docs/media/studio-reglages.png)
 
-Pipeline :
+![For agents panel](docs/media/studio-agents.png)
 
-1. Personnage : image envoyée (PNG détouré conseillé) ou prompt texte. Flux
-   génère le personnage sur fond vert uni ; une image envoyée est posée sur ce
-   même vert.
-2. États à la demande : presets par usage (agent IA, site web, complet), puis
-   ajout, retrait ou description libre de chaque état, 12 au maximum. Chaque
-   état est un clip de 3 s, en boucle ou joué une fois.
-3. Kling 3.0 (image-to-video) génère un clip par état. Le clip commence et
-   finit sur l'image de départ (`end_image_url`) : la boucle ne saute pas et
-   le widget passe d'un état à l'autre sur cette pose commune. Audio coupé.
-4. Détourage (ffmpeg) : le vert disparaît, chaque clip devient une vidéo
-   « alpha empilé » de 480 px (couleur en haut, masque en bas).
-5. Widget `<mascot-avatar>` : recompose la transparence en WebGL, dans tous les
-   navigateurs, Safari et iOS compris.
-6. Export : dossier importable + zip.
+![MCP configuration for Codex CLI and the Codex app](docs/media/studio-agents-codex.png)
 
-## Prérequis
+Pipeline:
 
-- Python 3.10 ou plus
-- ffmpeg et ffprobe dans le PATH (ou `MASCOTFORGE_FFMPEG`). Sans eux, la
-  génération marche mais les mascottes gardent leur fond vert ; `GET /api/health`
-  l'indique.
-- Une clé **fal.ai** collée dans les Réglages du studio. `FAL_KEY` reste un
-  repli pratique pour un serveur local. Sans clé disponible, les routes de
-  génération répondent `503` avec un message clair.
+1. Character: upload an image, preferably a cut-out PNG, or enter a text prompt.
+   Flux generates the character on a solid green background. Uploaded images
+   are placed on the same green.
+2. States on demand: start from a preset for AI agents, websites, or the full
+   set, then add, remove, or freely describe up to 12 states. Each state is a
+   3-second clip that loops or plays once.
+3. Kling 3.0 image-to-video generates one clip per state. Each clip starts and
+   ends on the source image through `end_image_url`. Loops stay seamless, and
+   the widget switches states on the shared pose. Audio is disabled.
+4. ffmpeg keying removes the green. Each clip becomes a 480 px stacked-alpha
+   video with color on top and the mask below.
+5. The `<mascot-avatar>` widget rebuilds transparency in WebGL across browsers,
+   including Safari and iOS.
+6. Export produces an importable folder and a zip archive.
+
+## Requirements
+
+- Python 3.10 or newer
+- ffmpeg and ffprobe on the PATH, or `MASCOTFORGE_FFMPEG`. Generation still
+  works without them, but mascots keep their green background. `GET /api/health`
+  reports their availability.
+- For AI video only, a **fal.ai** key entered in the studio Settings. Blob and
+  3D mascots need no key. `FAL_KEY` remains a useful
+  fallback for a local server. Without an available key, generation routes
+  return `503` with a clear message.
 
 ## Installation
 
 ```bash
+git clone https://github.com/Arivex-ca/mascotforge.git
+cd mascotforge
 python -m venv .venv
-.venv/bin/pip install -r requirements.txt   # Windows : .venv\Scripts\pip
-cp .env.example .env                        # puis renseigne FAL_KEY
+.venv/bin/pip install -r requirements.txt   # Windows: .venv\Scripts\pip
+cp .env.example .env                        # then set FAL_KEY
 ```
 
-## Lancement
+## Run
 
 ```bash
 .venv/bin/python -m uvicorn backend.main:app --port 8766 --env-file .env
 ```
 
-`--env-file` charge `FAL_KEY` et les réglages locaux depuis `.env`. Les clés
-propres aux utilisateurs arrivent par les en-têtes dédiés.
+`--env-file` loads `FAL_KEY` and local settings from `.env`. User-owned keys
+arrive through dedicated headers.
 
-- Studio : `http://localhost:8766/`
-- Widget et démo : `http://localhost:8766/widget/`
+- Studio: `http://localhost:8766/`
+- Widget and demo: `http://localhost:8766/widget/`
 
-## Réglages et sécurité des clés
+## Key settings and security
 
-Le bouton Réglages du studio accepte une clé fal.ai et, en option, une clé
-OpenRouter. Sans la case « Se souvenir sur cet appareil », le studio utilise
-`sessionStorage`. Avec la case, il utilise `localStorage`. Tous les accès à ces
-stockages ont un repli en mémoire si le navigateur les bloque.
+The studio Settings button accepts a fal.ai key and an optional OpenRouter key.
+Without "Remember on this device," the studio uses `sessionStorage`. With the
+option enabled, it uses `localStorage`. All access to these stores falls back
+to memory if the browser blocks them.
 
-Le navigateur envoie la clé utile dans un en-tête, `X-Fal-Key` ou
-`X-OpenRouter-Key`, uniquement lors d'un appel qui en a besoin. Le fournisseur
-de lecture des images 3D passe dans `X-Vision-Provider: fal|openrouter`. Une clé
-ne passe jamais dans une URL ou un paramètre de requête. Le serveur la garde
-dans le contexte de la requête et des tâches qu'elle lance. Il ne l'écrit ni
-dans les jobs, ni dans `data/`, ni dans les logs ou les réponses.
+The browser sends the required key in an `X-Fal-Key` or `X-OpenRouter-Key`
+header only when an operation needs it. The 3D image reader provider travels in
+`X-Vision-Provider: fal|openrouter`. Keys never enter a URL or query parameter.
+The server keeps a key in the request and task context. It does not write keys
+to jobs, `data/`, logs, or responses.
 
-`FAL_KEY` sert de repli local quand `X-Fal-Key` manque. `GET /api/health`
-continue donc à décrire seulement cette clé du serveur. Le studio affiche
-séparément l'état de la clé présente dans le navigateur.
+`FAL_KEY` is the local fallback when `X-Fal-Key` is missing. `GET /api/health`
+therefore continues to report only the server key. The studio displays the
+state of the browser key separately.
 
-Le bouton Tester ne lance aucune génération. OpenRouter vérifie la clé avec
-`GET https://openrouter.ai/api/v1/key`. fal.ai utilise l'appel d'obtention du
-jeton de stockage de `fal-client`, sans envoyer de fichier et sans inférence.
+The Test button starts no generation. OpenRouter checks the key with
+`GET https://openrouter.ai/api/v1/key`. fal.ai uses the `fal-client` storage
+token request without uploading a file or running inference.
 
-## Pour les agents
+## For agents
 
-La CLI et le serveur MCP utilisent l'API existante. Configure son adresse avec
-`MASCOTFORGE_URL`, par défaut `http://localhost:8766`. Pour fournir les clés au
-client sans les placer dans l'URL ou dans sa sortie, utilise
-`MASCOTFORGE_FAL_KEY` et `MASCOTFORGE_OPENROUTER_KEY`. Le client les transmet
-dans les deux en-têtes dédiés.
+The CLI and MCP server use the existing API. Configure the server address with
+`MASCOTFORGE_URL`, which defaults to `http://localhost:8766`. To provide keys
+without placing them in a URL or output, use `MASCOTFORGE_FAL_KEY` and
+`MASCOTFORGE_OPENROUTER_KEY`. The client sends them through the two dedicated
+headers.
 
 ### CLI
 
@@ -151,17 +155,17 @@ python -m mascotforge export ID --out ./export
 python -m mascotforge cost
 ```
 
-### Boucle gratuite : l'agent dessine lui-meme
+### Free loop: the agent draws the mascot itself
 
-Pour un blob hors des huit formes, l'agent décrit une superellipse et ses
-bosses dans une fiche JSON. `blob check` refuse les croisements, les contours
-trop fins, trop petits ou trop grands et les valeurs hors bornes. `blob
-preview` montre les huit états avant l'export autonome. Le guide contient un
-blob à deux cornes, une étoile et un haricot tordu.
+For a blob outside the eight built-in shapes, the agent describes a
+superellipse and its bumps in a JSON spec. `blob check` rejects intersections,
+outlines that are too thin, too small, or too large, and out-of-range values.
+`blob preview` displays all eight states before the standalone export. The
+guide includes a two-horned blob, a star, and a twisted bean.
 
-![Un blob à deux cornes dans ses huit états](docs/media/blob-sur-mesure.png)
+![A two-horned blob in eight states](docs/media/blob-sur-mesure.png)
 
-![Un blob en étoile dans ses huit états](docs/media/blob-etoile.png)
+![A star blob in eight states](docs/media/blob-etoile.png)
 
 ```bash
 python -m mascotforge blob guide --out ./guide-blob.md
@@ -170,15 +174,16 @@ python -m mascotforge blob preview ./blob.json --out ./planche-blob.png
 python -m mascotforge blob export ./blob.json --out ./blob-sur-mesure
 ```
 
-Un agent capable de voir l'image peut ecrire directement la fiche Wobnimo, sans
-appel a fal.ai et sans cout. Le serveur conserve le verificateur, le rendu, Node
-et le stockage. La boucle est volontairement visuelle :
+An agent that can see an image can write the Wobnimo spec directly, without a
+fal.ai call or cost. The server retains the checker, renderer, Node runtime,
+and storage. The loop is visual:
 
-1. Regarder l'image de reference et lire le guide.
-2. Ecrire la fiche JSON, puis lancer le check.
-3. Generer la planche et comparer sa vue de face, en haut a gauche, a l'image.
-4. Corriger et recommencer le check et la preview.
-5. Enregistrer la fiche ou l'exporter quand elle est juste.
+1. Inspect the reference image and read the guide.
+2. Write the JSON spec, then run the check.
+3. Generate the sheet and compare its front view in the top-left corner with
+   the source image.
+4. Correct the spec, then repeat the check and preview.
+5. Save the spec or export it when the result is accurate.
 
 ```bash
 python -m mascotforge spec guide --out ./guide-wobnimo.md
@@ -188,43 +193,42 @@ python -m mascotforge spec save ./personnage.json
 python -m mascotforge spec export ./personnage.json --out ./personnage-3d
 ```
 
-Ces commandes sont gratuites et ne demandent pas `--yes`. La commande
-`image3d` reste l'option payante dans laquelle un modele fal.ai ecrit la fiche.
+These commands are free and do not require `--yes`. The `image3d` command is
+the paid option where a fal.ai model writes the spec.
 
-Ajoute `--json` à une commande pour recevoir une sortie lisible par un agent.
-Les commandes `image3d` et `video` sont payantes. Sans `--yes`, elles affichent
-le prix estimé et quittent avec un code non nul avant tout lancement. Relance la
-commande avec `--yes` seulement après l'accord de l'utilisateur.
+Add `--json` to a command for agent-readable output. The `image3d` and `video`
+commands are paid. Without `--yes`, they display the estimated price and exit
+with a non-zero status before starting. Run the command again with `--yes`
+only after the user agrees.
 
-### MCP en stdio
+### MCP over stdio
 
 ```bash
 python -m mascotforge mcp
 ```
 
-Les créations longues sont séparées en trois appels :
-`mascotforge_video_start` ou `mascotforge_image3d_start`, puis
-`mascotforge_status`, puis `mascotforge_export`. Les outils de démarrage
-payants demandent `user_confirmed=true`. Leur description impose d'obtenir
-l'accord explicite de l'utilisateur après annonce du prix.
+Long-running creations use three calls: `mascotforge_video_start` or
+`mascotforge_image3d_start`, followed by `mascotforge_status`, then
+`mascotforge_export`. Paid start tools require `user_confirmed=true`. Their
+descriptions require the agent to state the price and obtain explicit consent.
 
-Les outils gratuits `mascotforge_spec_guide`, `mascotforge_spec_check`,
-`mascotforge_spec_preview`, `mascotforge_spec_save` et
-`mascotforge_spec_export` suivent la meme boucle. La preview revient comme une
-image MCP afin que l'agent voie la planche, la compare a l'image de reference et
-corrige lui-meme la fiche avant de l'enregistrer.
+The free `mascotforge_spec_guide`, `mascotforge_spec_check`,
+`mascotforge_spec_preview`, `mascotforge_spec_save`, and
+`mascotforge_spec_export` tools follow the same loop. The preview returns as an
+MCP image so the agent can inspect the sheet, compare it with the reference,
+and correct the spec before saving it.
 
-Les quatre outils de blob sur mesure sont `mascotforge_blob_guide`,
-`mascotforge_blob_check`, `mascotforge_blob_preview` et
-`mascotforge_blob_export`. La preview revient aussi comme image MCP.
+The four custom Blob tools are `mascotforge_blob_guide`,
+`mascotforge_blob_check`, `mascotforge_blob_preview`, and
+`mascotforge_blob_export`. Their preview also returns as an MCP image.
 
-Configuration Claude Desktop dans `%APPDATA%\Claude\claude_desktop_config.json` :
+Claude Desktop configuration in `%APPDATA%\Claude\claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "mascotforge": {
-      "command": "C:\\Users\\Darius\\Desktop\\text-to-mascot\\.venv\\Scripts\\python.exe",
+      "command": "C:\\path\\to\\text-to-mascot\\.venv\\Scripts\\python.exe",
       "args": ["-m", "mascotforge", "mcp"],
       "env": {"MASCOTFORGE_URL": "http://localhost:8766"}
     }
@@ -232,13 +236,13 @@ Configuration Claude Desktop dans `%APPDATA%\Claude\claude_desktop_config.json` 
 }
 ```
 
-Configuration Cursor dans `.cursor/mcp.json` :
+Cursor configuration in `.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "mascotforge": {
-      "command": "C:\\Users\\Darius\\Desktop\\text-to-mascot\\.venv\\Scripts\\python.exe",
+      "command": "C:\\path\\to\\text-to-mascot\\.venv\\Scripts\\python.exe",
       "args": ["-m", "mascotforge", "mcp"],
       "env": {"MASCOTFORGE_URL": "http://localhost:8766"}
     }
@@ -246,195 +250,194 @@ Configuration Cursor dans `.cursor/mcp.json` :
 }
 ```
 
-Configuration Codex CLI et application dans `~/.codex/config.toml` :
+Codex CLI and app configuration in `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.mascotforge]
-command = 'C:\Users\Darius\Desktop\text-to-mascot\.venv\Scripts\python.exe'
+command = 'C:\path\to\text-to-mascot\.venv\Scripts\python.exe'
 args = ["-m", "mascotforge", "mcp"]
-cwd = 'C:\Users\Darius\Desktop\text-to-mascot'
+cwd = 'C:\path\to\text-to-mascot'
 env = { MASCOTFORGE_URL = "http://localhost:8766" }
 ```
 
-Le CLI et l'application Codex lisent le même fichier. Le format de Codex CLI
-0.144.6 accepte `cwd`. Sa commande `codex mcp add` ne propose pas de drapeau
-`--cwd`, donc le bloc TOML reste la configuration complète. Si tu retires
-`cwd`, ajoute `PYTHONPATH = 'C:\Users\Darius\Desktop\text-to-mascot'` dans
-la table `env` pour que Python trouve le module depuis un autre dossier.
+The Codex CLI and app read the same file. Codex CLI 0.144.6 accepts `cwd`. Its
+`codex mcp add` command has no `--cwd` flag, so the TOML block remains the full
+configuration. If you remove `cwd`, add
+`PYTHONPATH = 'C:\path\to\text-to-mascot'` to the `env` table so Python can
+find the module from another directory.
 
-### Skill Agent Skills
+### Agent Skills skill
 
-Le skill source se trouve dans `skills/mascotforge/SKILL.md`. Il guide un agent
-vers le parcours gratuit adapté, impose la boucle visuelle pour une fiche 3D
-et bloque toute création payante avant l'estimation et l'accord explicite.
+The source skill lives in `skills/mascotforge/SKILL.md`. It guides an agent to
+the matching free path, requires the visual loop for a 3D spec, and blocks any
+paid creation until the estimate is shown and the user explicitly agrees.
 
-Installe-le pour Claude et les agents compatibles Agent Skills dans le dossier
-courant :
+Install it for Claude and Agent Skills-compatible agents in the current folder:
 
 ```bash
 python -m mascotforge skill
 ```
 
-Pour viser un autre projet :
+To target another project:
 
 ```bash
 python -m mascotforge skill --dir DOSSIER
 ```
 
-La commande copie le skill dans `.claude/skills/mascotforge/` et
-`.agents/skills/mascotforge/`. Elle conserve tout fichier local modifié. Utilise
-`--force` seulement si l'utilisateur confirme son remplacement.
+The command copies the skill to `.claude/skills/mascotforge/` and
+`.agents/skills/mascotforge/`. It preserves modified local files. Use `--force`
+only after the user confirms replacement.
 
 ## API
 
-| Méthode | Route | Description |
+| Method | Route | Description |
 |---|---|---|
 | GET | `/api/health` | `{"ok", "fal_key_configured", "ffmpeg_available"}` |
-| POST | `/api/keys/test` | `{"provider":"fal"|"openrouter"}` avec la clé en en-tête, puis `{"ok", "message"}` |
-| GET | `/api/presets` | presets d'états, coût par état, nombre max d'états |
-| POST | `/api/character/from-prompt` | `{"prompt"}` -> `{"character_id", "image_url"}` (429 si plafond) |
-| POST | `/api/character/from-upload` | multipart `file`, 10 Mo max -> `{"character_id", "image_url"}` |
-| POST | `/api/generate` | `{"character_id", "states": [{"name", "prompt", "loop"}]}` ou `{"character_id", "usage"}` -> `{"job_id"}` |
-| GET | `/api/jobs/{job_id}` | statut, états (`video_url`, `model`, `error`, `loop`), coût estimé et réel |
-| POST | `/api/jobs/{job_id}/retry` | relance les seuls états en échec (409 s'il n'y en a pas) |
-| POST | `/api/jobs/{job_id}/states/{etat}/regenerate` | `{"prompt"?}` : nouveau clip pour un seul état |
-| POST | `/api/jobs/{job_id}/look` | `{"prompt"?}` : ajoute ou refait le suivi du curseur (clip de 8 s) |
-| GET | `/api/jobs/{job_id}/manifest.json` | manifest du widget pour l'aperçu |
-| POST | `/api/export/{job_id}` | `{"download_url"}` (409 si le job n'est pas terminé) |
-| GET | `/api/engines` | styles en code : réglages, états, crédits |
-| GET | `/api/engines/{moteur}/manifest.json?<réglages>` | manifest d'aperçu d'une mascotte en code (400 si un réglage est refusé) |
-| POST | `/api/engines/{moteur}/export` | `{"config"}` -> `{"download_url"}` : zip avec le moteur et sa licence |
-| GET | `/api/exports/{filename}` | téléchargement du zip |
-| GET | `/videos/{job_id}/{etat}.mp4` | clip détouré |
+| POST | `/api/keys/test` | `{"provider":"fal"|"openrouter"}` with the key in a header, then `{"ok", "message"}` |
+| GET | `/api/presets` | state presets, cost per state, maximum state count |
+| POST | `/api/character/from-prompt` | `{"prompt"}` -> `{"character_id", "image_url"}` (429 at the cap) |
+| POST | `/api/character/from-upload` | multipart `file`, 10 MB maximum -> `{"character_id", "image_url"}` |
+| POST | `/api/generate` | `{"character_id", "states": [{"name", "prompt", "loop"}]}` or `{"character_id", "usage"}` -> `{"job_id"}` |
+| GET | `/api/jobs/{job_id}` | status, states (`video_url`, `model`, `error`, `loop`), estimated and actual cost |
+| POST | `/api/jobs/{job_id}/retry` | retry only failed states (409 when none failed) |
+| POST | `/api/jobs/{job_id}/states/{state}/regenerate` | `{"prompt"?}`: generate one state again |
+| POST | `/api/jobs/{job_id}/look` | `{"prompt"?}`: add or regenerate cursor tracking with an 8-second clip |
+| GET | `/api/jobs/{job_id}/manifest.json` | widget manifest for the preview |
+| POST | `/api/export/{job_id}` | `{"download_url"}` (409 until the job finishes) |
+| GET | `/api/engines` | code styles, settings, states, and credits |
+| GET | `/api/engines/{engine}/manifest.json?<settings>` | preview manifest for a code mascot (400 for rejected settings) |
+| POST | `/api/engines/{engine}/export` | `{"config"}` -> `{"download_url"}`: zip with the engine and its license |
+| GET | `/api/exports/{filename}` | download the zip |
+| GET | `/videos/{job_id}/{state}.mp4` | keyed clip |
 | GET | `/api/cost` | `{"month", "spent_usd", "reserved_usd", "cap_usd", "mascots_completed"}` |
 
-Les messages d'erreur sont en français (champ `detail`), sans em dash. Les
-erreurs de fal.ai ou de ffmpeg restent dans les logs du serveur ; l'API ne
-renvoie qu'un message propre.
+Error messages are in French in the `detail` field and contain no em dash.
+fal.ai and ffmpeg errors stay in server logs. The API returns a clean message.
 
-Les routes payantes acceptent `X-Fal-Key`. La création 3D depuis une image
-accepte aussi `X-OpenRouter-Key` et `X-Vision-Provider`. Aucun secret n'est
-accepté dans une URL ou dans un paramètre de requête.
+Paid routes accept `X-Fal-Key`. 3D creation from an image also accepts
+`X-OpenRouter-Key` and `X-Vision-Provider`. No secret is accepted in a URL or
+query parameter.
 
-## Modèles fal.ai
+## fal.ai models
 
-Surchargeables par variables d'environnement :
+Environment variables can override these models:
 
-- Text-to-image : `fal-ai/flux/dev` (`MASCOTFORGE_TTI_MODEL`)
-- Image-to-video : `fal-ai/kling-video/v3/standard/image-to-video`
-  (`MASCOTFORGE_I2V_MODEL`). Schéma lu le 2026-10-30 : `start_image_url`
-  (requis), `end_image_url`, `generate_audio`, durée `"3"` à `"15"`.
-- Fallback : `fal-ai/kling-video/v3/pro/image-to-video` (`MASCOTFORGE_FALLBACK_MODEL`)
+- Text-to-image: `fal-ai/flux/dev` (`MASCOTFORGE_TTI_MODEL`)
+- Image-to-video: `fal-ai/kling-video/v3/standard/image-to-video`
+  (`MASCOTFORGE_I2V_MODEL`). Schema read on 2026-10-30: required
+  `start_image_url`, optional `end_image_url`, `generate_audio`, duration from
+  `"3"` to `"15"`.
+- Fallback: `fal-ai/kling-video/v3/pro/image-to-video` (`MASCOTFORGE_FALLBACK_MODEL`)
 
-## Coûts
+## Costs
 
-- 0,084 $/s en Kling 3.0 standard sans audio (page tarif fal.ai, 2026-10-30) :
-  environ 0,25 $ par état de 3 s. Une mascotte de 4 états coûte environ 1 $,
-  plus 0,025 $ si l'image vient d'un prompt.
-- Plafond mensuel `MASCOTFORGE_MONTHLY_CAP_USD` (défaut 50 $), compteur dans
-  `data/cost.json`. Chaque job réserve son estimation avant de partir : deux
-  jobs lancés en même temps ne dépassent pas le plafond ensemble.
-- Un clip généré est compté même si son téléchargement échoue ; la relance le
-  retélécharge sans le repayer.
-- Suivi du curseur : un clip de 8 s, environ 0,67 $.
-- Tarif du modèle pro : estimation, à vérifier sur la page tarif fal.ai.
+- $0.084/s for Kling 3.0 standard without audio, from the fal.ai pricing page
+  on 2026-10-30. A 3-second state costs about $0.25. A four-state mascot costs
+  about $1, plus $0.025 when the image comes from a prompt.
+- `MASCOTFORGE_MONTHLY_CAP_USD` sets the monthly cap, $50 by default. The
+  counter lives in `data/cost.json`. Each job reserves its estimate before it
+  starts, so two simultaneous jobs cannot exceed the cap together.
+- A generated clip is counted even when its download fails. Retrying downloads
+  it again without paying for generation again.
+- Cursor tracking uses one 8-second clip and costs about $0.67.
+- The pro model price is an estimate that must be checked on the fal.ai pricing page.
 
 ## Export
 
-`POST /api/export/{job_id}` assemble `exports/mascot-{id}/mascot/` :
+`POST /api/export/{job_id}` assembles `exports/mascot-{id}/mascot/`:
 
-- `mascot.js` : le widget
-- `manifest.json` (v2) : `{"default_state", "alpha": "stacked", "states": {"idle": {"src", "loop"}, ...}, "models"}`
-- `videos/*.mp4` : un clip par état
-- `README.md` : notice d'intégration générée à partir des états
+- `mascot.js`: the widget
+- `manifest.json` v2: `{"default_state", "alpha": "stacked", "states": {"idle": {"src", "loop"}, ...}, "models"}`
+- `videos/*.mp4`: one clip per state
+- `README.md`: integration instructions generated from the states
 
 ## Widget
 
 ```html
-<mascot-avatar manifest="./mascot/manifest.json" label="Mon assistant"></mascot-avatar>
+<mascot-avatar manifest="./mascot/manifest.json" label="My assistant"></mascot-avatar>
 <script src="./mascot/mascot.js"></script>
 <script>
   document.querySelector("mascot-avatar").play("thinking");
 </script>
 ```
 
-Attributs : `click-state` (défaut `clicked` s'il existe), `sleep-state` (défaut
-`sleeping` s'il existe), `sleep-after` (secondes, 0 pour désactiver), `switch`
-(`loop-end` par défaut, ou `immediate`), `parallax`, `follow-cursor`, `label`.
-Le widget lit aussi les manifests v1 de la V2.
+Attributes: `click-state`, which defaults to `clicked` when present;
+`sleep-state`, which defaults to `sleeping` when present; `sleep-after` in
+seconds, where 0 disables it; `switch`, with `loop-end` as the default or
+`immediate`; `parallax`; `follow-cursor`; and `label`. The widget also reads
+V1 manifests from V2.
 
-### Mascottes en code
+### Code mascots
 
-Le studio propose deux styles sans IA ni coût, choisis en haut de la page :
+The studio offers two styles without AI or cost at the top of the page:
 
-| Style | Moteur | Réglages | États |
+| Style | Engine | Settings | States |
 |---|---|---|---|
-| `blob` | Blob Atelier, Victoria Wu, MIT | forme (8), matière (6), couleur (11 ou `#rrggbb`), yeux, joues | idle, listening, thinking, talking, working, happy, done, error |
-| `3d` | Wobnimo, Pourya Akhbari, MIT | personnage (20, dont Volt le robot à LED) | idle, listening, thinking, speaking, working, error, celebrating, surprised, sleeping, sad |
+| `blob` | Blob Atelier, Victoria Wu, MIT | shape (8), material (6), color (11 or `#rrggbb`), eyes, cheeks | idle, listening, thinking, talking, working, happy, done, error |
+| `3d` | Wobnimo, Pourya Akhbari, MIT | character (20, including the LED robot Volt) | idle, listening, thinking, speaking, working, error, celebrating, surprised, sleeping, sad |
 
-Le manifest porte `"engine"`, `"engine_src"` (le moteur, livré dans
-`engines/` à côté) et `"engine_config"`. Le widget charge le moteur une fois
-par page et relaie `play()` ; les noms courants passent d'un moteur à l'autre
-(`talking` et `speaking`, `happy` et `celebrating`). Ces mascottes suivent le
-curseur d'elles-mêmes, et aucune n'appelle de serveur tiers : MascotForge ne
-propose pas les animaux 3D de Blob Atelier, qui chargent three.js depuis un CDN.
-Provenance, versions et empreintes des moteurs : `engines/README.md`.
+The manifest contains `"engine"`, `"engine_src"` for the engine shipped next
+to it in `engines/`, and `"engine_config"`. The widget loads the engine once
+per page and relays `play()`. Common names cross engines, including `talking`
+and `speaking`, or `happy` and `celebrating`. These mascots follow the cursor
+themselves and call no third-party server. MascotForge excludes Blob Atelier's
+3D animals because they load three.js from an external CDN. See
+`engines/README.md` for engine provenance, versions, and hashes.
 
-### Personnage 3D depuis une image
+### 3D character from an image
 
-Dans le style 3D, l'onglet « Depuis ton image » crée un personnage Wobnimo sur
-mesure :
+In the 3D style, the "From your image" tab creates a custom Wobnimo character:
 
-1. Avec fal.ai, l'image part sur son stockage. Avec OpenRouter direct, le
-   serveur convertit l'image en data URL base64 en mémoire et ne l'envoie pas
-   au stockage fal.ai.
-2. Un modèle qui lit les images (`MASCOTFORGE_SPEC_MODEL`, défaut
-   `anthropic/claude-sonnet-5.5`) écrit la fiche du personnage en JSON, en
-   suivant le guide de Wobnimo embarqué dans `engines/wobnimo/skill/`. Le mode
-   fal.ai utilise `openrouter/router/vision`. Le mode OpenRouter appelle
-   directement `/api/v1/chat/completions` avec le raisonnement activé.
-3. Le vérificateur de Wobnimo (`engines/wobnimo/dist/cli.js`, lancé avec Node 18
-   ou plus) mesure la vraie forme 3D. Ses erreurs et leurs corrections exactes
-   repartent au modèle, en 3 passes au plus.
-4. Le vérificateur ne juge pas la ressemblance. Le serveur fait donc le rendu
-   de la fiche (`wobnimo preview`, qui ouvre Chrome ou Edge sans fenêtre ;
-   `MASCOTFORGE_BROWSER` donne son chemin s'il n'est pas trouvé) et envoie au
-   modèle l'image et le rendu côte à côte. Le modèle répond OK ou renvoie une
-   fiche corrigée, qui repasse par le vérificateur ; une correction qui casse la
-   géométrie est écartée. 2 comparaisons au plus. Sans navigateur, cette étape
-   est sautée.
-5. La fiche validée s'affiche dans le widget (`"engine_spec"` du manifest) et
-   part dans l'export.
+1. With fal.ai, the image goes to its storage. With direct OpenRouter, the
+   server converts the image to a base64 data URL in memory and does not send
+   it to fal.ai storage.
+2. An image-reading model, set by `MASCOTFORGE_SPEC_MODEL` and defaulting to
+   `anthropic/claude-sonnet-5.5`, writes the JSON character spec from the
+   Wobnimo guide bundled in `engines/wobnimo/skill/`. fal.ai mode uses
+   `openrouter/router/vision`. OpenRouter mode calls
+   `/api/v1/chat/completions` directly with reasoning enabled.
+3. Wobnimo's checker in `engines/wobnimo/dist/cli.js`, run with Node 18 or
+   newer, measures the actual 3D geometry. Its errors and exact fixes return to
+   the model for up to three passes.
+4. The checker does not judge visual similarity. The server renders the spec
+   with `wobnimo preview`, which opens Chrome or Edge headlessly. Set
+   `MASCOTFORGE_BROWSER` if the browser is not found. The model receives the
+   source image beside the render and returns OK or a corrected spec. The
+   correction goes through the checker again, and a correction that breaks
+   geometry is discarded. The server performs at most two comparisons and
+   skips this step when no browser is available.
+5. The validated spec appears in the widget through `"engine_spec"` in the
+   manifest and ships in the export.
 
-Coût : le coût réel renvoyé par le fournisseur à chaque appel, environ 0,15 à
-0,60 $ par personnage selon le nombre de passes ; 1 $ est réservé sous le
-plafond pendant la création. OpenRouter renvoie normalement `usage.cost`. Si ce
-champ manque, MascotForge estime le coût avec les jetons de `usage` et le
-signale dans le studio. Le résultat reste une interprétation dans le style
-Wobnimo : au repos, les yeux de l'écran LED restent ceux du moteur.
+Cost: the actual provider cost for each call, about $0.15 to $0.60 per
+character depending on pass count. MascotForge reserves $1 under the cap while
+creating the character. OpenRouter normally returns `usage.cost`. When the
+field is missing, MascotForge estimates the cost from `usage` tokens and marks
+the estimate in the studio. The result remains an interpretation in Wobnimo's
+style. At idle, the LED screen eyes remain those of the engine.
 
-| Méthode | Route | Description |
+| Method | Route | Description |
 |---|---|---|
-| POST | `/api/engines/3d/from-image` | multipart `file` -> `{"spec_id"}` (503 sans la clé du fournisseur choisi ou sans Node) |
-| GET | `/api/engines/3d/specs/{spec_id}` | statut, nom, passes, avertissements, coût et `cost_estimated` |
+| POST | `/api/engines/3d/from-image` | multipart `file` -> `{"spec_id"}` (503 without the selected provider key or Node) |
+| GET | `/api/engines/3d/specs/{spec_id}` | status, name, passes, warnings, cost, and `cost_estimated` |
 
-La fiche s'utilise ensuite avec `{"spec": spec_id}` à la place de
-`{"character": ...}`, pour l'aperçu comme pour l'export.
+Use the spec with `{"spec": spec_id}` instead of `{"character": ...}` for
+both preview and export.
 
-### Suivi du curseur
+### Cursor tracking
 
-Option du studio (étape 3) : Kling génère un clip de 8 s où seule la tête
-regarde à gauche, à droite, en haut et en bas, en partant et en revenant à la
-pose de référence. Au détourage, le pipeline recale l'intérieur de la tête sur
-la première image pour mesurer la direction du regard sur chaque image, et
-l'écrit dans le manifest (`"look": {"src", "fps", "map"}`). Le clip garde 12
-images par seconde, chacune en image clé.
+The studio offers cursor tracking in step 3. Kling generates an 8-second clip
+in which only the head looks left, right, up, and down, starting and returning
+to the reference pose. During keying, the pipeline aligns the inside of the
+head against the first image to measure the gaze direction in every frame. It
+writes the result to the manifest as `"look": {"src", "fps", "map"}`. The
+clip keeps 12 frames per second, with every frame as a keyframe.
 
-Au repos, le widget n'en lit pas le clip : il affiche l'image dont le regard
-est le plus proche du curseur, avec un lissage, puis revient à la boucle de
-repos 2,5 s après le dernier mouvement. Tout `play()` coupe le suivi. Le clip
-ne se charge qu'au premier mouvement de souris ; le suivi reste éteint au
-toucher, avec `prefers-reduced-motion` ou `follow-cursor="false"`.
+While idle, the widget does not play the clip. It displays the frame whose gaze
+is closest to the cursor with smoothing, then returns to the idle loop 2.5
+seconds after the last movement. Any `play()` call stops tracking. The clip
+loads only after the first mouse movement. Tracking stays off on touch devices,
+with `prefers-reduced-motion`, or with `follow-cursor="false"`.
 
 ## Tests
 
@@ -442,36 +445,37 @@ toucher, avec `prefers-reduced-motion` ou `follow-cursor="false"`.
 .venv/bin/python -m pytest tests/ -v
 ```
 
-fal.ai est mocké : aucun appel réseau, aucun cent dépensé. `tests/test_alpha.py`
-lance le vrai ffmpeg sur un clip synthétique. `tests/test_widget_chromium.py`
-saute si Playwright n'est pas installé ; `widget/smoke.html` se lance dans un
-navigateur.
+fal.ai is mocked, so tests make no network call and spend nothing.
+`tests/test_alpha.py` runs the real ffmpeg against a synthetic clip.
+`tests/test_widget_chromium.py` skips when Playwright is not installed.
+`widget/smoke.html` runs in a browser.
 
-## Licence
+Made by [Arivex](https://arivex.ca), which builds AI agents for businesses.
 
-MascotForge est sous licence MIT (voir `LICENSE`) : tu peux l'utiliser, le
-modifier, le redistribuer et le vendre, à condition de garder la mention de
-copyright et le texte de la licence. Le widget porte cette mention en tête ;
-elle part donc dans chaque export.
+## License
 
-Les moteurs tiers de `engines/` gardent leur propre licence MIT, celle de leurs
-auteurs : Blob Atelier (Victoria Wu) et Wobnimo (Pourya Akhbari). Leurs
-fichiers `LICENSE` restent à côté d'eux et partent dans chaque export qui les
-utilise (voir `engines/README.md`).
+MascotForge uses the MIT license. See `LICENSE`. You may use, modify,
+redistribute, and sell it as long as you keep the copyright notice and license
+text. The widget carries the notice in its header, so every export includes it.
 
-## Fichiers
+Third-party engines in `engines/` retain their authors' MIT licenses: Blob
+Atelier by Victoria Wu and Wobnimo by Pourya Akhbari. Their `LICENSE` files
+stay beside them and ship in every export that uses them. See
+`engines/README.md`.
 
-- `backend/main.py` : app FastAPI, routes, fichiers statiques
-- `backend/states.py` : presets d'états et validation des états libres
-- `backend/fal.py` : client fal.ai (upload, text-to-image, image-to-video)
-- `backend/openrouter.py` : client OpenRouter direct pour la lecture d'images
-- `backend/alpha.py` : fond vert, détourage ffmpeg, mesure du regard
-- `backend/pipeline.py` : jobs, fallback, téléchargement, relance, reprise au démarrage
-- `backend/cost.py` : compteur mensuel, réservations, plafond
-- `backend/exporter.py` : manifest v2, dossier importable, zip
-- `backend/engines.py` : mascottes en code (moteurs, réglages, manifest)
-- `backend/image3d.py` : image -> personnage 3D Wobnimo (modèle vision, vérificateur, corrections)
-- `engines/` : Blob Atelier et Wobnimo, non modifiés, avec leurs licences MIT
-- `widget/mascot-avatar.js` : le composant web
-- `studio/` : l'interface de création
-- `skills/mascotforge/` : skill Agent Skills pour créer et intégrer une mascotte
+## Files
+
+- `backend/main.py`: FastAPI app, routes, static files
+- `backend/states.py`: state presets and custom state validation
+- `backend/fal.py`: fal.ai client for upload, text-to-image, and image-to-video
+- `backend/openrouter.py`: direct OpenRouter client for image reading
+- `backend/alpha.py`: green background, ffmpeg keying, gaze measurement
+- `backend/pipeline.py`: jobs, fallback, download, retry, restart recovery
+- `backend/cost.py`: monthly counter, reservations, cap
+- `backend/exporter.py`: V2 manifest, importable folder, zip
+- `backend/engines.py`: code mascots, engines, settings, manifests
+- `backend/image3d.py`: image to Wobnimo 3D character with a vision model, checker, and corrections
+- `engines/`: unmodified Blob Atelier and Wobnimo code with their MIT licenses
+- `widget/mascot-avatar.js`: the web component
+- `studio/`: creation interface
+- `skills/mascotforge/`: Agent Skills skill for creating and integrating a mascot

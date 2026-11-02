@@ -174,7 +174,7 @@ python -m mascotforge video --image ./robot.png --usage agent --out ./robot-vide
       <pre><code id="config-claude-agent">{
   &quot;mcpServers&quot;: {
     &quot;mascotforge&quot;: {
-      &quot;command&quot;: &quot;C:\Users\Darius\Desktop\text-to-mascot\.venv\Scripts\python.exe&quot;,
+      &quot;command&quot;: &quot;C:\\path\\to\\text-to-mascot\\.venv\\Scripts\\python.exe&quot;,
       &quot;args&quot;: [&quot;-m&quot;, &quot;mascotforge&quot;, &quot;mcp&quot;],
       &quot;env&quot;: {&quot;MASCOTFORGE_URL&quot;: &quot;http://localhost:8766&quot;}
     }
@@ -194,7 +194,7 @@ python -m mascotforge video --image ./robot.png --usage agent --out ./robot-vide
       <pre><code id="config-cursor-agent">{
   &quot;mcpServers&quot;: {
     &quot;mascotforge&quot;: {
-      &quot;command&quot;: &quot;C:\Users\Darius\Desktop\text-to-mascot\.venv\Scripts\python.exe&quot;,
+      &quot;command&quot;: &quot;C:\\path\\to\\text-to-mascot\\.venv\\Scripts\\python.exe&quot;,
       &quot;args&quot;: [&quot;-m&quot;, &quot;mascotforge&quot;, &quot;mcp&quot;],
       &quot;env&quot;: {&quot;MASCOTFORGE_URL&quot;: &quot;http://localhost:8766&quot;}
     }
@@ -212,9 +212,9 @@ python -m mascotforge video --image ./robot.png --usage agent --out ./robot-vide
         <button type="button" class="discret bouton-copie-agent" data-cible="config-codex-agent">Copier</button>
       </div>
       <pre><code id="config-codex-agent">[mcp_servers.mascotforge]
-command = 'C:\Users\Darius\Desktop\text-to-mascot\.venv\Scripts\python.exe'
+command = 'C:\path\to\text-to-mascot\.venv\Scripts\python.exe'
 args = [&quot;-m&quot;, &quot;mascotforge&quot;, &quot;mcp&quot;]
-cwd = 'C:\Users\Darius\Desktop\text-to-mascot'
+cwd = 'C:\path\to\text-to-mascot'
 env = { MASCOTFORGE_URL = &quot;http://localhost:8766&quot; }</code></pre>
     </div>
   </section>

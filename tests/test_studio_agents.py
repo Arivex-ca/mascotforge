@@ -1,4 +1,7 @@
+import html
+import json
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,13 +34,22 @@ def test_agent_panel_documents_cli_and_mcp_configuration():
         "Codex CLI et application",
         "config.toml",
         "[mcp_servers.mascotforge]",
-        "cwd = 'C:\\Users\\Darius\\Desktop\\text-to-mascot'",
+        "cwd = 'C:\\path\\to\\text-to-mascot'",
     )
 
     assert 'id="btn-agents"' in INDEX
     assert 'id="panneau-agents"' in INDEX
     for text in expected:
         assert text in INDEX
+
+    for element_id in ("config-claude-agent", "config-cursor-agent"):
+        match = re.search(
+            rf'<code id="{element_id}">(.*?)</code>', INDEX, flags=re.DOTALL
+        )
+        assert match
+        config = json.loads(html.unescape(match.group(1)))
+        command = config["mcpServers"]["mascotforge"]["command"]
+        assert command == r"C:\path\to\text-to-mascot\.venv\Scripts\python.exe"
 
 
 def test_prices_are_absent_before_a_paid_launch():
@@ -78,7 +90,7 @@ def test_mobile_header_and_progression_wrap_without_page_overflow():
 
 def test_readme_documents_codex_skill_and_future_studio_captures():
     assert "[mcp_servers.mascotforge]" in README
-    assert "Codex CLI et application" in README
+    assert "Codex CLI and app" in README
     assert "python -m mascotforge skill" in README
     assert ".claude/skills/mascotforge/" in README
     assert ".agents/skills/mascotforge/" in README
