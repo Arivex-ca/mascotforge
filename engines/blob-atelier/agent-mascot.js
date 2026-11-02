@@ -103,17 +103,23 @@ var PARTS = {
           {L:'patch', kind:'beak', face:1, dy:14, w:9, col:'beak'} ]
 };
 var GEO = {};
-SHAPES.concat(ANIMALS).forEach(function(name){
-  var fn=SHAPE_FN[name], p=new Float64Array(N*2), i, A=0, cx=0;
-  for(i=0;i<N;i++){ var q=fn(i/N*TAU); p[2*i]=q[0]; p[2*i+1]=q[1]; }
+function buildGeo(name,p){
+  var i, A=0, cx=0;
   for(i=0;i<N;i++){ var j=(i+1)%N, cr=p[2*i]*p[2*j+1]-p[2*j]*p[2*i+1]; A+=cr; cx+=(p[2*i]+p[2*j])*cr; }
+  if(!isFinite(A) || Math.abs(A)<1e-6) return false;
   A/=2; cx/=(6*A); var sc=Math.sqrt(Math.PI*0.9*0.9*(AREA[name]||1)/Math.abs(A)), maxY=-9, minY=9, hw=0;
   for(i=0;i<N;i++){ p[2*i]=(p[2*i]-cx)*sc; p[2*i+1]*=sc; maxY=Math.max(maxY,p[2*i+1]); }
   for(i=0;i<N;i++){ p[2*i+1]+=0.9-maxY; minY=Math.min(minY,p[2*i+1]); hw=Math.max(hw,Math.abs(p[2*i])); }
   for(i=0;i<2*N;i++) p[i]*=S;
-  var f=FACE[name], ear=null;
+  var f=FACE[name]||[0.5,0.34], ear=null;
   if(name==='kitty'){ ear=new Float64Array(N*2); for(i=0;i<N;i++){ var tt=i/N*TAU, d1=tt-(1.5*Math.PI-0.62), d2=tt-(1.5*Math.PI+0.62); ear[2*i]=Math.exp(-d1*d1/0.03); ear[2*i+1]=Math.exp(-d2*d2/0.03); } }
   GEO[name]={ ear:ear, p:p, top:minY*S, bot:0.9*S, hw:hw*S, fy:(minY+(0.9-minY)*f[0])*S, sp:hw*S*f[1] };
+  return true;
+}
+SHAPES.concat(ANIMALS).forEach(function(name){
+  var fn=SHAPE_FN[name], p=new Float64Array(N*2), i;
+  for(i=0;i<N;i++){ var q=fn(i/N*TAU); p[2*i]=q[0]; p[2*i+1]=q[1]; }
+  buildGeo(name,p);
 });
 function pathD(p){
   var d='', i, r=function(v){ return Math.round(v*100)/100; };
@@ -1109,6 +1115,18 @@ class AgentMascot extends HTMLElement {
 AgentMascot.manual = false;
 AgentMascot.tick = function(dt){ live.forEach(function(m){ m.step(dt); }); };
 AgentMascot.PALETTE = PALETTE; AgentMascot.STATES = STATES; AgentMascot.MATERIALS = MATERIALS; AgentMascot.SHAPES = SHAPES; AgentMascot.ALIASES = ALIAS;
+AgentMascot.defineShape = function(name,points){
+  if(!/^custom-[a-z0-9-]{1,48}$/.test(name) || !Array.isArray(points) || points.length!==N){ console.warn('agent-mascot: custom shape rejected'); return false; }
+  var p=new Float64Array(N*2), i;
+  for(i=0;i<N;i++){
+    var q=points[i];
+    if(!Array.isArray(q) || q.length!==2 || !Number.isFinite(q[0]) || !Number.isFinite(q[1]) || Math.abs(q[0])>4 || Math.abs(q[1])>4){ console.warn('agent-mascot: custom shape point rejected'); return false; }
+    p[2*i]=q[0]; p[2*i+1]=q[1];
+  }
+  if(!buildGeo(name,p)){ console.warn('agent-mascot: custom shape geometry rejected'); return false; }
+  if(SHAPES.indexOf(name)<0) SHAPES.push(name);
+  return true;
+};
 AgentMascot.THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js'; AgentMascot.no3D = false; AgentMascot.adaptive = true;
 // phones and tablets (touch-first, or little memory): fewer fur shells, a smaller shadow map, a lower 3D resolution and
 // 30fps when idle, so the GPU gets to idle between frames instead of running flat out and heating up. Set before the first animal shows.

@@ -18,6 +18,7 @@ def test_mascotforge_skill_is_actionable_and_safe():
     assert "avatar animé" in text.lower()
     assert "donner un visage à mon agent" in text.lower()
     assert "python -m mascotforge spec guide" in text
+    assert "python -m mascotforge blob guide" in text
     assert "mascotforge_spec_preview" in text
     assert "mascotforge_image3d_start" in text
     assert "mascotforge_video_start" in text

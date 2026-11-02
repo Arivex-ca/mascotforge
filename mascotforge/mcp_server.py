@@ -24,6 +24,11 @@ SPEC_LOOP = (
     "lancer le check, regarder la preview, la comparer a l'image, corriger, puis save ou export. "
 )
 
+BLOB_LOOP = (
+    "Boucle gratuite : lire le guide blob, ecrire la fiche JSON, lancer le check, "
+    "regarder les huit etats dans la preview, corriger, puis exporter. "
+)
+
 
 def _video_estimate(client: MascotForgeClient, usage: str) -> dict[str, Any]:
     presets = client.styles()["presets"]
@@ -54,6 +59,30 @@ def mascotforge_code(
 ) -> dict[str, Any]:
     with MascotForgeClient() as client:
         return client.export_code(engine, config or {}, Path(out))
+
+
+@mcp.tool(description=BLOB_LOOP + "Renvoie le guide et trois exemples complets.")
+def mascotforge_blob_guide() -> dict[str, str]:
+    with MascotForgeClient() as client:
+        return {"guide": client.blob_guide()}
+
+
+@mcp.tool(description=BLOB_LOOP + "Verifie le contour et chaque reglage sans rien conserver.")
+def mascotforge_blob_check(spec: dict[str, Any]) -> dict[str, Any]:
+    with MascotForgeClient() as client:
+        return client.blob_check(spec)
+
+
+@mcp.tool(description=BLOB_LOOP + "Rend la planche des huit etats comme contenu image MCP.")
+def mascotforge_blob_preview(spec: dict[str, Any]) -> Image:
+    with MascotForgeClient() as client:
+        return Image(data=client.blob_preview(spec), format="png")
+
+
+@mcp.tool(description=BLOB_LOOP + "Verifie et exporte le dossier autonome dans un dossier local.")
+def mascotforge_blob_export(spec: dict[str, Any], out: str) -> dict[str, Any]:
+    with MascotForgeClient() as client:
+        return client.blob_export(spec, Path(out))
 
 
 @mcp.tool(description=SPEC_LOOP + "Renvoie le guide Wobnimo complet et l'exemple Volt.")

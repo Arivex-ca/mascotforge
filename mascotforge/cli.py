@@ -37,6 +37,19 @@ def build_parser() -> argparse.ArgumentParser:
     code.add_argument("--set", action="append", default=[], metavar="CLE=VALEUR")
     code.add_argument("--out", required=True, type=Path, metavar="DOSSIER")
 
+    blob = commands.add_parser("blob", help="dessine et exporte un blob sur mesure")
+    blob_commands = blob.add_subparsers(dest="blob_command", required=True)
+    blob_guide = blob_commands.add_parser("guide", help="affiche le guide de fiche blob")
+    blob_guide.add_argument("--out", type=Path, metavar="FICHIER")
+    blob_check = blob_commands.add_parser("check", help="verifie une fiche JSON de blob")
+    blob_check.add_argument("file", type=Path, metavar="FICHIER.json")
+    blob_preview = blob_commands.add_parser("preview", help="rend les huit etats en PNG")
+    blob_preview.add_argument("file", type=Path, metavar="FICHIER.json")
+    blob_preview.add_argument("--out", required=True, type=Path, metavar="PLANCHE.png")
+    blob_export = blob_commands.add_parser("export", help="exporte un blob sur mesure")
+    blob_export.add_argument("file", type=Path, metavar="FICHIER.json")
+    blob_export.add_argument("--out", required=True, type=Path, metavar="DOSSIER")
+
     spec = commands.add_parser("spec", help="ecrit et exporte gratuitement une fiche Wobnimo")
     spec_commands = spec.add_subparsers(dest="spec_command", required=True)
     spec_guide = spec_commands.add_parser("guide", help="affiche le guide complet pour un agent")
@@ -296,6 +309,27 @@ def main(
                 "creation": "code",
                 **api.export_code(args.engine, _settings(args.set), args.out),
             }
+        elif args.command == "blob":
+            if args.blob_command == "guide":
+                guide = api.blob_guide()
+                out = None
+                if args.out is not None:
+                    args.out.parent.mkdir(parents=True, exist_ok=True)
+                    args.out.write_text(guide, encoding="utf-8")
+                    out = str(args.out.resolve())
+                result = {"ok": True, "kind": "spec-guide", "guide": guide, "out": out}
+            elif args.blob_command == "check":
+                checked = api.blob_check(_load_spec(args.file))
+                result = {"kind": "spec-check", **checked}
+                _emit(result, json_mode)
+                return 0 if checked.get("ok") else 2
+            elif args.blob_command == "preview":
+                content = api.blob_preview(_load_spec(args.file))
+                args.out.parent.mkdir(parents=True, exist_ok=True)
+                args.out.write_bytes(content)
+                result = {"ok": True, "kind": "spec-preview", "out": str(args.out.resolve()), "bytes": len(content)}
+            else:
+                result = {"ok": True, "kind": "export", "creation": "blob", **api.blob_export(_load_spec(args.file), args.out)}
         elif args.command == "spec":
             if args.spec_command == "guide":
                 guide = api.spec_guide()

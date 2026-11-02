@@ -37,6 +37,23 @@ python -m mascotforge code --engine blob --set shape=cloud --out ./mascotte
 
 MCP : `mascotforge_code(engine="blob", config={"shape":"cloud"}, out="./mascotte")`.
 
+### Blob gratuit dessiné par l'agent
+
+Utiliser ce parcours pour une silhouette absente des huit formes, par exemple
+des cornes, des oreilles, une étoile ou un haricot tordu. La fiche ne contient
+que des données JSON. Répéter le check et la preview après chaque correction.
+
+```bash
+python -m mascotforge blob guide --out ./guide-blob.md
+python -m mascotforge blob check ./blob.json
+python -m mascotforge blob preview ./blob.json --out ./planche.png
+python -m mascotforge blob export ./blob.json --out ./mascotte
+```
+
+MCP : appeler dans cet ordre `mascotforge_blob_guide`,
+`mascotforge_blob_check`, `mascotforge_blob_preview`, puis
+`mascotforge_blob_export`.
+
 ### Personnage 3D gratuit de la galerie
 
 Choisir un personnage Wobnimo existant.

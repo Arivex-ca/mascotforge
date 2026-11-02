@@ -102,6 +102,26 @@ class MascotForgeClient:
         )
         return self._download_and_extract(exported, out)
 
+    def blob_guide(self) -> str:
+        body = self._json("GET", "/api/engines/blob/guide")
+        guide = body.get("guide")
+        if not isinstance(guide, str) or not guide:
+            raise MascotForgeError("Le serveur MascotForge n'a pas fourni le guide de blob.")
+        return guide
+
+    def blob_check(self, spec: dict) -> dict:
+        return self._json("POST", "/api/engines/blob/specs/check", json={"spec": spec})
+
+    def blob_preview(self, spec: dict) -> bytes:
+        response = self._request("POST", "/api/engines/blob/specs/preview", json={"spec": spec})
+        if response.headers.get("content-type", "").split(";", 1)[0] != "image/png":
+            raise MascotForgeError("Le serveur MascotForge n'a pas renvoye une planche PNG.")
+        return response.content
+
+    def blob_export(self, spec: dict, out: Path) -> dict:
+        exported = self._json("POST", "/api/engines/blob/specs/export", json={"spec": spec})
+        return self._download_and_extract(exported, out)
+
     def spec_guide(self) -> str:
         body = self._json("GET", "/api/engines/3d/guide")
         guide = body.get("guide")

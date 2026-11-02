@@ -21,7 +21,8 @@
  *
  * Code mascots: "engine": "blob" (Blob Atelier) or "3d" (Wobnimo), with
  * "engine_src" (the engine script) and "engine_config" (its attributes), or
- * "engine_spec" (a custom Wobnimo character, made from an image). The
+ * "engine_spec" (a custom Wobnimo character, made from an image), or
+ * "engine_shape" (72 numeric points for a custom Blob Atelier shape). The
  * widget loads the engine once per page and relays play(); the engine draws
  * and animates the mascot, and follows the cursor on its own.
  *
@@ -429,10 +430,23 @@ class MascotAvatar extends HTMLElement {
     // A custom character (made from an image) is set as a property once the
     // engine has defined the element: set earlier, it would shadow the engine's
     // setter. Hidden until then, so the engine's default character never flashes.
-    const custom = manifest.engine_spec && typeof manifest.engine_spec === "object" ? manifest.engine_spec : null;
+    const custom = manifest.engine === "3d" && manifest.engine_spec && typeof manifest.engine_spec === "object" ? manifest.engine_spec : null;
+    const blobShape = manifest.engine === "blob" && manifest.engine_shape && typeof manifest.engine_shape === "object" ? manifest.engine_shape : null;
     if (custom) el.style.visibility = "hidden";
     this._stage.appendChild(el);
     const ready = loadEngine(new URL(manifest.engine_src, base).href, spec).then(() => {
+      if (blobShape) {
+        const accepted = window.AgentMascot && typeof window.AgentMascot.defineShape === "function" &&
+          window.AgentMascot.defineShape(blobShape.name, blobShape.points);
+        if (accepted) {
+          el.removeAttribute("shape");
+          el.setAttribute("shape", blobShape.name);
+        }
+        else {
+          console.warn("[mascot-avatar] invalid custom blob shape ignored");
+          el.setAttribute("shape", "mochi");
+        }
+      }
       if (custom) {
         el.spec = custom;
         el.style.visibility = "";

@@ -12,6 +12,10 @@ def test_agent_panel_documents_cli_and_mcp_configuration():
     expected = (
         "python -m mascotforge styles",
         "python -m mascotforge code",
+        "python -m mascotforge blob guide",
+        "python -m mascotforge blob check",
+        "python -m mascotforge blob preview",
+        "python -m mascotforge blob export",
         "python -m mascotforge spec guide",
         "python -m mascotforge spec check",
         "python -m mascotforge spec preview",

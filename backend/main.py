@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import Headers
 
-from backend import alpha
+from backend import alpha, blob
 from backend import cost as cost_module
 from backend import engines as engines_module
 from backend import image3d, openrouter
@@ -116,7 +116,7 @@ def _start(coro) -> None:  # type: ignore[no-untyped-def]
     task.add_done_callback(_background_tasks.discard)
 
 
-async def _agent_spec_from_request(request: Request) -> dict:
+async def _spec_from_request(request: Request) -> dict:
     """Lit une fiche JSON bornee sans accepter un corps arbitrairement gros."""
     content = bytearray()
     async for chunk in request.stream():
@@ -132,6 +132,11 @@ async def _agent_spec_from_request(request: Request) -> dict:
     spec = body.get("spec")
     if not isinstance(spec, dict):
         raise HTTPException(status_code=400, detail="Le champ spec doit etre un objet JSON.")
+    return spec
+
+
+async def _agent_spec_from_request(request: Request) -> dict:
+    spec = await _spec_from_request(request)
     if not isinstance(spec.get("parts"), list):
         raise HTTPException(status_code=400, detail="La fiche doit contenir une liste parts.")
     return spec
@@ -430,6 +435,42 @@ def api_engines() -> dict:
 def api_agent_spec_guide() -> dict:
     """Guide complet pour un agent qui ecrit lui-meme une fiche Wobnimo."""
     return {"guide": image3d.agent_guide()}
+
+
+@app.get("/api/engines/blob/guide")
+def api_blob_spec_guide() -> dict:
+    """Guide court pour un agent qui dessine un contour Blob Atelier."""
+    return {"guide": blob.guide()}
+
+
+@app.post("/api/engines/blob/specs/check")
+async def api_blob_spec_check(request: Request) -> dict:
+    spec = await _spec_from_request(request)
+    return await asyncio.to_thread(blob.check_spec, spec)
+
+
+@app.post("/api/engines/blob/specs/preview")
+async def api_blob_spec_preview(request: Request):  # type: ignore[no-untyped-def]
+    spec = await _spec_from_request(request)
+    try:
+        content = await asyncio.to_thread(blob.render_agent_sheet, spec)
+    except blob.BlobSpecError as exc:
+        return JSONResponse(status_code=422, content={"detail": str(exc), "issues": exc.issues})
+    except blob.BlobRenderError as exc:
+        raise HTTPException(status_code=503, detail=f"Rendu Blob Atelier impossible : {exc}")
+    return Response(content=content, media_type="image/png")
+
+
+@app.post("/api/engines/blob/specs/export", response_model=ExportResponse)
+async def api_blob_spec_export(request: Request):  # type: ignore[no-untyped-def]
+    spec = await _spec_from_request(request)
+    try:
+        result = await asyncio.to_thread(exporter.build_blob_export, spec)
+    except blob.BlobSpecError as exc:
+        return JSONResponse(status_code=422, content={"detail": str(exc), "issues": exc.issues})
+    except exporter.ExportError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return ExportResponse(**result)
 
 
 def _require_wobnimo_checker() -> None:

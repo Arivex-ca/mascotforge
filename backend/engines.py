@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 
-from backend import image3d, settings
+from backend import blob, image3d, settings
 
 HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
@@ -116,6 +116,24 @@ def build_manifest(engine: str, config: dict, script_src: str, name: str) -> dic
         # Fiche sur mesure : le widget la passe a <wobnimo-mascot> (el.spec).
         manifest["engine_config"] = {}
         manifest["engine_spec"] = image3d.done_spec(clean["spec"])
+    return manifest
+
+
+def build_blob_manifest(blob_spec: dict, script_src: str) -> dict:
+    """Manifest d'un blob sur mesure, sans passer par les huit formes nommees."""
+    compiled = blob.compile_spec(blob_spec)
+    manifest = {
+        "version": 2,
+        "name": compiled["name"],
+        "engine": "blob",
+        "engine_src": script_src,
+        "engine_config": compiled["config"],
+        "engine_shape": {"name": compiled["shape"], "points": compiled["points"]},
+        "default_state": "idle",
+        "alpha": "none",
+        "states": {state: {"loop": True} for state in ENGINES["blob"]["states"]},
+        "credit": ENGINES["blob"]["credit"],
+    }
     return manifest
 
 

@@ -68,7 +68,7 @@ Moteur : {credit}.
 
 - `mascot.js` : le composant web `<mascot-avatar>` (aucune dependance, zero build step)
 - `manifest.json` : moteur, reglages et etats
-- `engines/{script_name}` : le moteur, non modifie
+- `engines/{script_name}` : le moteur embarque
 - `engines/LICENSE` : sa licence MIT, a garder avec le fichier
 
 ## Integration (chemins relatifs)
@@ -101,10 +101,8 @@ class ExportError(Exception):
     pass
 
 
-def build_engine_export(engine: str, config: dict) -> dict:
-    """Export d'une mascotte en code. Retourne {filename, download_url}."""
+def _build_engine_archive(engine: str, name: str, manifest: dict) -> dict:
     spec = engines_module.get_engine(engine)
-    name = f"mascot-{engine}-{uuid.uuid4().hex[:8]}"
     script = engines_module.script_path(engine)
     widget_src = settings.widget_source_file()
     if not script.is_file() or not widget_src.is_file():
@@ -117,7 +115,6 @@ def build_engine_export(engine: str, config: dict) -> dict:
     shutil.copyfile(script, engine_dir / script.name)
     shutil.copyfile(engines_module.license_path(engine), engine_dir / "LICENSE")
 
-    manifest = engines_module.build_manifest(engine, config, f"engines/{script.name}", name)
     (root / "mascot" / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     readme = ENGINE_README_TEMPLATE.format(
         name=name, credit=spec["credit"], source=spec["source"],
@@ -130,6 +127,22 @@ def build_engine_export(engine: str, config: dict) -> dict:
     shutil.make_archive(str(root), "zip", root_dir=root)
     filename = f"{name}.zip"
     return {"filename": filename, "download_url": f"/api/exports/{filename}"}
+
+
+def build_engine_export(engine: str, config: dict) -> dict:
+    """Export d'une mascotte en code parmi les formes existantes."""
+    name = f"mascot-{engine}-{uuid.uuid4().hex[:8]}"
+    script = engines_module.script_path(engine)
+    manifest = engines_module.build_manifest(engine, config, f"engines/{script.name}", name)
+    return _build_engine_archive(engine, name, manifest)
+
+
+def build_blob_export(blob_spec: dict) -> dict:
+    """Export autonome d'un blob sur mesure valide."""
+    name = f"mascot-blob-{uuid.uuid4().hex[:8]}"
+    script = engines_module.script_path("blob")
+    manifest = engines_module.build_blob_manifest(blob_spec, f"engines/{script.name}")
+    return _build_engine_archive("blob", name, manifest)
 
 
 def _short_id(job_id: str) -> str:

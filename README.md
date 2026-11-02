@@ -139,6 +139,10 @@ dans les deux en-têtes dédiés.
 python -m mascotforge styles
 python -m mascotforge code --engine blob --set shape=cloud --out ./mon-blob
 python -m mascotforge code --engine 3d --set character=volt --out ./mon-robot
+python -m mascotforge blob guide --out ./guide-blob.md
+python -m mascotforge blob check ./blob.json
+python -m mascotforge blob preview ./blob.json --out ./planche-blob.png
+python -m mascotforge blob export ./blob.json --out ./blob-sur-mesure
 python -m mascotforge image3d ./robot.png --out ./robot-3d
 python -m mascotforge video --image ./robot.png --usage agent --out ./robot-video
 python -m mascotforge video --prompt "un petit renard orange" --usage site --out ./renard
@@ -148,6 +152,23 @@ python -m mascotforge cost
 ```
 
 ### Boucle gratuite : l'agent dessine lui-meme
+
+Pour un blob hors des huit formes, l'agent décrit une superellipse et ses
+bosses dans une fiche JSON. `blob check` refuse les croisements, les contours
+trop fins, trop petits ou trop grands et les valeurs hors bornes. `blob
+preview` montre les huit états avant l'export autonome. Le guide contient un
+blob à deux cornes, une étoile et un haricot tordu.
+
+![Un blob à deux cornes dans ses huit états](docs/media/blob-sur-mesure.png)
+
+![Un blob en étoile dans ses huit états](docs/media/blob-etoile.png)
+
+```bash
+python -m mascotforge blob guide --out ./guide-blob.md
+python -m mascotforge blob check ./blob.json
+python -m mascotforge blob preview ./blob.json --out ./planche-blob.png
+python -m mascotforge blob export ./blob.json --out ./blob-sur-mesure
+```
 
 Un agent capable de voir l'image peut ecrire directement la fiche Wobnimo, sans
 appel a fal.ai et sans cout. Le serveur conserve le verificateur, le rendu, Node
@@ -192,6 +213,10 @@ Les outils gratuits `mascotforge_spec_guide`, `mascotforge_spec_check`,
 `mascotforge_spec_export` suivent la meme boucle. La preview revient comme une
 image MCP afin que l'agent voie la planche, la compare a l'image de reference et
 corrige lui-meme la fiche avant de l'enregistrer.
+
+Les quatre outils de blob sur mesure sont `mascotforge_blob_guide`,
+`mascotforge_blob_check`, `mascotforge_blob_preview` et
+`mascotforge_blob_export`. La preview revient aussi comme image MCP.
 
 Configuration Claude Desktop dans `%APPDATA%\Claude\claude_desktop_config.json` :
 

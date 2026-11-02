@@ -36,6 +36,10 @@ async def test_mcp_stdio_starts_and_lists_tools():
     assert {
         "mascotforge_styles",
         "mascotforge_code",
+        "mascotforge_blob_guide",
+        "mascotforge_blob_check",
+        "mascotforge_blob_preview",
+        "mascotforge_blob_export",
         "mascotforge_spec_guide",
         "mascotforge_spec_check",
         "mascotforge_spec_preview",
@@ -69,3 +73,45 @@ def test_mcp_spec_preview_returns_exact_image_content(monkeypatch):
     content = result.to_image_content()
     assert content.type == "image" and content.mime_type == "image/png"
     assert base64.b64decode(content.data) == png
+
+
+def test_mcp_blob_preview_returns_exact_image_content(monkeypatch):
+    from mcp.server.mcpserver import Image
+
+    from mascotforge.client import MascotForgeClient
+    from mascotforge.mcp_server import mascotforge_blob_preview
+
+    png = b"\x89PNG\r\n\x1a\nblob"
+    monkeypatch.setattr(MascotForgeClient, "blob_preview", lambda _self, _spec: png)
+    result = mascotforge_blob_preview({"contour": {}})
+    assert isinstance(result, Image)
+    assert base64.b64decode(result.to_image_content().data) == png
+
+
+def test_mcp_blob_guide_check_and_export_call_the_client(monkeypatch, tmp_path):
+    from mascotforge.client import MascotForgeClient
+    from mascotforge.mcp_server import (
+        mascotforge_blob_check,
+        mascotforge_blob_export,
+        mascotforge_blob_guide,
+    )
+
+    seen: list[tuple[str, object]] = []
+    monkeypatch.setattr(MascotForgeClient, "blob_guide", lambda _self: "guide blob")
+    monkeypatch.setattr(
+        MascotForgeClient,
+        "blob_check",
+        lambda _self, spec: seen.append(("check", spec)) or {"ok": True, "issues": []},
+    )
+    monkeypatch.setattr(
+        MascotForgeClient,
+        "blob_export",
+        lambda _self, spec, out: seen.append(("export", (spec, out))) or {"out": str(out)},
+    )
+    spec = {"version": 1, "contour": {}}
+    out = tmp_path / "blob"
+
+    assert mascotforge_blob_guide() == {"guide": "guide blob"}
+    assert mascotforge_blob_check(spec)["ok"]
+    assert mascotforge_blob_export(spec, str(out))["out"] == str(out)
+    assert seen == [("check", spec), ("export", (spec, out))]
