@@ -126,6 +126,11 @@ dans les jobs, ni dans `data/`, ni dans les logs ou les réponses.
 continue donc à décrire seulement cette clé du serveur. Le studio affiche
 séparément l'état de la clé présente dans le navigateur.
 
+Ne mets pas `FAL_KEY` sur un serveur que d'autres personnes peuvent joindre :
+chaque visiteur sans clé générerait des vidéos sur ton compte fal. Le plafond
+mensuel (`MASCOTFORGE_MONTHLY_CAP_USD`) est aussi partagé par tous les
+utilisateurs du serveur.
+
 Le bouton Tester ne lance aucune génération. OpenRouter vérifie la clé avec
 `GET https://openrouter.ai/api/v1/key`. fal.ai utilise l'appel d'obtention du
 jeton de stockage de `fal-client`, sans envoyer de fichier et sans inférence.

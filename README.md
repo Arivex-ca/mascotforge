@@ -12,6 +12,9 @@ Three styles, one `<mascot-avatar>` widget, and one `play(state)` API:
 - **Code Blob**: Blob Atelier by Victoria Wu, MIT, free and instant.
 - **Code 3D**: Wobnimo by Pourya Akhbari, MIT, 20 characters, free and instant.
 
+The studio, the CLI help and the API error messages are in French for now.
+Issues and pull requests in English are welcome.
+
 ## Gallery
 
 MascotForge produced everything shown below.
@@ -124,6 +127,10 @@ to jobs, `data/`, logs, or responses.
 `FAL_KEY` is the local fallback when `X-Fal-Key` is missing. `GET /api/health`
 therefore continues to report only the server key. The studio displays the
 state of the browser key separately.
+
+Do not set `FAL_KEY` on a server that other people can reach: every visitor
+without a key would generate videos on your fal account. The monthly cap
+(`MASCOTFORGE_MONTHLY_CAP_USD`) is also shared by everyone using the server.
 
 The Test button starts no generation. OpenRouter checks the key with
 `GET https://openrouter.ai/api/v1/key`. fal.ai uses the `fal-client` storage
