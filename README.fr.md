@@ -272,6 +272,11 @@ Le CLI et l'application Codex lisent le même fichier. Le format de Codex CLI
 `cwd`, ajoute `PYTHONPATH = 'C:\path\to\text-to-mascot'` dans
 la table `env` pour que Python trouve le module depuis un autre dossier.
 
+Avec `codex exec`, personne n'est là pour approuver un outil, et Codex annule
+l'appel (« user cancelled MCP tool call »). Ajoute
+`default_tools_approval_mode = "approve"` dans ce bloc et lance
+`codex exec -c 'approval_policy="never"'`. Testé avec Codex CLI 0.144.6.
+
 ### Skill Agent Skills
 
 Le skill source se trouve dans `skills/mascotforge/SKILL.md`. Il guide un agent

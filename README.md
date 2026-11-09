@@ -274,6 +274,11 @@ configuration. If you remove `cwd`, add
 `PYTHONPATH = 'C:\path\to\text-to-mascot'` to the `env` table so Python can
 find the module from another directory.
 
+With `codex exec`, nobody is there to approve a tool call, so Codex cancels it
+("user cancelled MCP tool call"). Add
+`default_tools_approval_mode = "approve"` to this block and run
+`codex exec -c 'approval_policy="never"'`. Tested with Codex CLI 0.144.6.
+
 ### Agent Skills skill
 
 The source skill lives in `skills/mascotforge/SKILL.md`. It guides an agent to
