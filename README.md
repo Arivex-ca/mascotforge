@@ -6,6 +6,14 @@ Give your AI agent a face: describe a mascot or upload an image, choose its anim
 
 [Français](README.fr.md)
 
+```html
+<mascot-avatar manifest="./mascot/manifest.json" label="My assistant"></mascot-avatar>
+<script src="./mascot/mascot.js"></script>
+<script>document.querySelector("mascot-avatar").play("thinking");</script>
+```
+
+**The first 10 mascots are on me.** [Tell me what your agent does](https://github.com/Arivex-ca/mascotforge/issues/new?title=Mascot%20request%3A%20&body=What%20does%20your%20agent%20do%3F%0A%0AStyle%20%28blob%2C%203D%20or%20video%29%3A%0A%0AHow%20did%20you%20find%20MascotForge%3F%0A) and I'll make yours by hand, free. In return, three questions: would you install it, which states are missing, and what does your agent run on?
+
 Three styles, one `<mascot-avatar>` widget, and one `play(state)` API:
 
 - **AI video**: Kling animates your character with states you define through the pipeline below.
@@ -36,6 +44,12 @@ configured in the studio, each in a different state. They are free, animate in
 the browser, and follow the cursor.
 
 ![Four blobs and four 3D characters in the MascotForge widget](docs/media/mascottes-en-code.png)
+
+**Drawn by an agent**: Codex designed this fox on its own over MCP, with no API
+key. After the first preview it decided the shape looked like a cat, then fixed
+it.
+
+![A fox blob designed by Codex over MCP, in eight states](docs/media/renard-agent.png)
 
 **3D character from an image**: the source image on the left, followed by two
 Wobnimo characters written by a model from that image: Visor, then Glimmer with

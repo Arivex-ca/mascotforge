@@ -6,6 +6,16 @@ Brique produit Arivex : tu décris une mascotte (ou tu envoies son image), tu
 choisis ses états d'animation, et l'outil sort une mascotte animée à fond
 transparent, prête à coller dans un site ou devant un agent IA.
 
+![Démo MascotForge : vidéo IA, blob et 3D gratuits](docs/media/demo.gif)
+
+```html
+<mascot-avatar manifest="./mascot/manifest.json" label="Mon assistant"></mascot-avatar>
+<script src="./mascot/mascot.js"></script>
+<script>document.querySelector("mascot-avatar").play("thinking");</script>
+```
+
+**Les 10 premières mascottes sont offertes.** [Dis-moi ce que fait ton agent](https://github.com/Arivex-ca/mascotforge/issues/new?title=Demande%20de%20mascotte%20%3A%20&body=Que%20fait%20ton%20agent%20%3F%0A%0AStyle%20%28blob%2C%203D%20ou%20vid%C3%A9o%29%20%3A%0A%0AComment%20as-tu%20trouv%C3%A9%20MascotForge%20%3F%0A) et je fais la tienne à la main, gratuitement. En échange, trois questions : l'installerais-tu, quels états manquent, et sur quoi tourne ton agent ?
+
 Trois styles, un seul widget `<mascot-avatar>` et une seule API `play(etat)` :
 
 - **Vidéo IA** : ton personnage animé par Kling, états à la demande (pipeline ci-dessous).
@@ -32,6 +42,12 @@ réglés dans le studio, chacun dans un état différent. Gratuits, animés en
 direct dans le navigateur, ils suivent le curseur.
 
 ![Quatre blobs et quatre personnages 3D dans le widget MascotForge](docs/media/mascottes-en-code.png)
+
+**Dessiné par un agent** : Codex a conçu ce renard seul, par MCP et sans clé
+d'API. Après le premier aperçu, il a jugé que la forme ressemblait à un chat,
+puis l'a corrigée.
+
+![Un blob renard conçu par Codex par MCP, dans ses huit états](docs/media/renard-agent.png)
 
 **Personnage 3D depuis une image** : à gauche l'image d'origine, puis deux
 personnages Wobnimo écrits par un modèle d'après cette image (Visor, puis
