@@ -26,14 +26,16 @@ Trois styles, un seul widget `<mascot-avatar>` et une seule API `play(etat)` :
 
 Tout ce qui suit a été produit par MascotForge.
 
-**Vidéo IA** : le robot Arivex, à partir d'une seule image, en 4 états (repos,
-réflexion, parole, panne). Fond transparent, boucles sans saut ; ici posé sur
-un fond crème. Coût : 1,01 $ pour les 4 états.
+**Vidéo IA** : un renard peluche, à partir d'une seule image générée par
+Claude Code, animé par Kling en 4 états (repos, réflexion, parole, erreur).
+Fond vert retiré, boucles sans saut ; ici posé sur un fond crème. Coût :
+1,01 $ pour les 4 états.
 
-![Le robot Arivex en vidéo : repos, réflexion, parole, panne](docs/media/robot-video-etats.gif)
+![Le renard peluche en vidéo : repos, réflexion, parole, erreur](docs/media/renard-video-etats.gif)
 
-**Suivi du curseur** : un clip de 8 s où seule la tête regarde dans les 4
-directions ; au repos, le widget affiche l'image qui regarde vers la souris.
+**Suivi du curseur**, ici avec le robot Arivex : un clip de 8 s où seule la
+tête regarde dans les 4 directions ; au repos, le widget affiche l'image qui
+regarde vers la souris.
 
 ![La tête du robot qui regarde à gauche, à droite, en haut et en bas](docs/media/robot-suivi-curseur.gif)
 
@@ -48,6 +50,14 @@ d'API. Après le premier aperçu, il a jugé que la forme ressemblait à un chat
 puis l'a corrigée.
 
 ![Un blob renard conçu par Codex par MCP, dans ses huit états](docs/media/renard-agent.png)
+
+**Image de base générée par l'agent** : pas d'image de départ ni de clé fal ?
+Claude Code a généré lui-même ces quatre peluches avec le modèle gratuit
+Z-Image Turbo, via son connecteur Hugging Face, en suivant le skill
+MascotForge. L'image retenue part ensuite vers la vidéo, l'image vers 3D ou
+Wobnimo.
+
+![Quatre mascottes peluches générées par Claude Code : renard, nuage, robot et pêche](docs/media/peluches-agent.png)
 
 **Personnage 3D depuis une image** : à gauche l'image d'origine, puis deux
 personnages Wobnimo écrits par un modèle d'après cette image (Visor, puis
@@ -172,6 +182,7 @@ python -m mascotforge blob export ./blob.json --out ./blob-sur-mesure
 python -m mascotforge image3d ./robot.png --out ./robot-3d
 python -m mascotforge video --image ./robot.png --usage agent --out ./robot-video
 python -m mascotforge video --prompt "un petit renard orange" --usage site --out ./renard
+python -m mascotforge video --image ./renard.png --states ./etats.json --out ./renard
 python -m mascotforge status ID
 python -m mascotforge export ID --out ./export
 python -m mascotforge cost

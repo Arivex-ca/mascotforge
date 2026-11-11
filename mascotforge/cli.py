@@ -75,6 +75,12 @@ def build_parser() -> argparse.ArgumentParser:
     source.add_argument("--image", type=Path, metavar="IMAGE")
     source.add_argument("--prompt", metavar="TEXTE")
     video.add_argument("--usage", choices=("agent", "site", "complet"), default="agent")
+    video.add_argument(
+        "--states",
+        type=Path,
+        metavar="ETATS.json",
+        help='etats sur mesure, liste [{"name", "prompt", "loop"}] ; remplace --usage',
+    )
     video.add_argument("--out", required=True, type=Path, metavar="DOSSIER")
     video.add_argument("--yes", action="store_true", help="confirme la depense estimee")
 
@@ -256,13 +262,33 @@ def _confirmation(kind: str, message: str, estimate: dict) -> dict:
     }
 
 
-def _video_estimate(client: MascotForgeClient, usage: str) -> dict:
+def _read_states(path: Path) -> list[dict]:
+    """Lit un fichier d'etats sur mesure ; le serveur valide noms et prompts."""
+    try:
+        states = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise MascotForgeError(f"Fichier d'etats illisible : {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise MascotForgeError(f"JSON invalide dans {path} : {exc.msg}") from exc
+    if not isinstance(states, list) or not all(isinstance(s, dict) for s in states):
+        raise MascotForgeError(
+            'Le fichier d\'etats doit contenir une liste [{"name", "prompt", "loop"}].'
+        )
+    return states
+
+
+def _video_estimate(
+    client: MascotForgeClient, usage: str, states: list[dict] | None = None
+) -> dict:
     presets = client.styles()["presets"]
-    preset = presets["presets"].get(usage)
-    if not isinstance(preset, dict):
-        raise MascotForgeError(f"Preset video inconnu : {usage}")
-    states = preset.get("states", [])
-    count = len(states)
+    if states is not None:
+        count = len(states)
+        usage = "sur-mesure"
+    else:
+        preset = presets["presets"].get(usage)
+        if not isinstance(preset, dict):
+            raise MascotForgeError(f"Preset video inconnu : {usage}")
+        count = len(preset.get("states", []))
     per_state = float(presets["cost_per_state_usd"])
     return {
         "usage": usage,
@@ -386,7 +412,8 @@ def main(
                 **api.export_creation(started["spec_id"], args.out),
             }
         elif args.command == "video":
-            estimate = _video_estimate(api, args.usage)
+            states = _read_states(args.states) if args.states else None
+            estimate = _video_estimate(api, args.usage, states)
             if not args.yes:
                 result = _confirmation(
                     "video",
@@ -396,7 +423,9 @@ def main(
                 )
                 _emit(result, json_mode)
                 return 2
-            started = api.start_video(args.usage, image=args.image, prompt=args.prompt)
+            started = api.start_video(
+                args.usage, image=args.image, prompt=args.prompt, states=states
+            )
             api.wait_video(started["job_id"], on_update=_progress(json_mode))
             result = {
                 "ok": True,

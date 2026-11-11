@@ -30,12 +30,18 @@ BLOB_LOOP = (
 )
 
 
-def _video_estimate(client: MascotForgeClient, usage: str) -> dict[str, Any]:
+def _video_estimate(
+    client: MascotForgeClient, usage: str, states: list[dict] | None = None
+) -> dict[str, Any]:
     presets = client.styles()["presets"]
-    preset = presets["presets"].get(usage)
-    if not isinstance(preset, dict):
-        raise ValueError(f"Preset video inconnu : {usage}")
-    count = len(preset.get("states", []))
+    if states is not None:
+        count = len(states)
+        usage = "sur-mesure"
+    else:
+        preset = presets["presets"].get(usage)
+        if not isinstance(preset, dict):
+            raise ValueError(f"Preset video inconnu : {usage}")
+        count = len(preset.get("states", []))
     per_state = float(presets["cost_per_state_usd"])
     return {
         "usage": usage,
@@ -144,17 +150,20 @@ def mascotforge_image3d_start(image: str, user_confirmed: bool = False) -> dict[
     description=(
         "Creation video payante. Obtenez l'accord explicite de l'utilisateur apres lui avoir "
         "annonce le prix estime. Sans accord, laissez user_confirmed=false pour lire ce prix. "
-        "L'outil demarre la creation et rend un job_id sans attendre sa fin."
+        "L'outil demarre la creation et rend un job_id sans attendre sa fin. "
+        "states (facultatif) remplace usage par des etats sur mesure : "
+        "[{name, prompt, loop}], prompt en anglais, 300 caracteres max."
     )
 )
 def mascotforge_video_start(
     usage: str = "agent",
     image: str | None = None,
     prompt: str | None = None,
+    states: list[dict[str, Any]] | None = None,
     user_confirmed: bool = False,
 ) -> dict[str, Any]:
     with MascotForgeClient() as client:
-        estimate = _video_estimate(client, usage)
+        estimate = _video_estimate(client, usage, states)
         if not user_confirmed:
             return {
                 "started": False,
@@ -166,6 +175,7 @@ def mascotforge_video_start(
             usage=usage,
             image=Path(image) if image is not None else None,
             prompt=prompt,
+            states=states,
         )
         return {"started": True, "estimate": estimate, **started}
 

@@ -154,6 +154,42 @@ def test_video_with_yes_uses_fake_server_and_exports(client, fal_fake, tmp_path,
     assert (out / "mascot" / "videos" / "idle.mp4").is_file()
 
 
+def test_video_with_custom_states_file(client, fal_fake, tmp_path, capsys):
+    image = tmp_path / "renard.png"
+    image.write_bytes(b"\x89PNG-factice")
+    states_file = tmp_path / "etats.json"
+    states_file.write_text(json.dumps([
+        {"name": "idle", "prompt": "breathing gently, slow blink", "loop": True},
+        {"name": "done", "prompt": "eyes close happily, proud little hop", "loop": False},
+    ]), encoding="utf-8")
+    out = tmp_path / "video"
+    base = ["video", "--image", str(image), "--states", str(states_file), "--out", str(out)]
+
+    assert cli.main([*base, "--json"], client=_api(client)) == 2
+    estimate = json.loads(capsys.readouterr().out)["estimate"]
+    assert estimate["states"] == 2 and estimate["usage"] == "sur-mesure"
+    assert fal_fake.video_calls == []
+
+    assert cli.main([*base, "--yes", "--json"], client=_api(client)) == 0
+    capsys.readouterr()
+    manifest = json.loads((out / "mascot" / "manifest.json").read_text(encoding="utf-8"))
+    assert set(manifest["states"]) == {"idle", "done"}
+
+
+def test_video_rejects_states_file_that_is_not_a_list(client, tmp_path, capsys):
+    image = tmp_path / "renard.png"
+    image.write_bytes(b"\x89PNG-factice")
+    states_file = tmp_path / "etats.json"
+    states_file.write_text('{"name": "idle"}', encoding="utf-8")
+
+    result = cli.main(
+        ["video", "--image", str(image), "--states", str(states_file), "--out", str(tmp_path)],
+        client=_api(client),
+    )
+    captured = capsys.readouterr()
+    assert result != 0 and "liste" in captured.out + captured.err
+
+
 def test_image3d_with_yes_uses_fake_server_and_exports(
     client, fal_fake, monkeypatch, tmp_path, capsys
 ):

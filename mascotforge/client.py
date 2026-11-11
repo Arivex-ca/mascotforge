@@ -175,7 +175,9 @@ class MascotForgeClient:
         usage: str,
         image: Path | None = None,
         prompt: str | None = None,
+        states: list[dict] | None = None,
     ) -> dict:
+        """states : etats sur mesure [{name, prompt, loop}], prioritaires sur usage."""
         if (image is None) == (prompt is None):
             raise MascotForgeError("Donnez soit une image, soit un prompt, mais pas les deux.")
         if image is not None:
@@ -194,11 +196,12 @@ class MascotForgeClient:
             character = self._json(
                 "POST", "/api/character/from-prompt", json={"prompt": clean_prompt}
             )
-        generated = self._json(
-            "POST",
-            "/api/generate",
-            json={"character_id": character["character_id"], "usage": usage},
-        )
+        request: dict = {"character_id": character["character_id"]}
+        if states is not None:
+            request["states"] = states
+        else:
+            request["usage"] = usage
+        generated = self._json("POST", "/api/generate", json=request)
         return {**generated, "character_id": character["character_id"]}
 
     def video_status(self, job_id: str) -> dict:
