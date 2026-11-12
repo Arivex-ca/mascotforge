@@ -12,18 +12,19 @@ SOURCE = ROOT / "skills" / "mascotforge" / "SKILL.md"
 
 def test_mascotforge_skill_is_actionable_and_safe():
     text = SOURCE.read_text(encoding="utf-8")
+    normalized = " ".join(text.split())
 
     assert text.startswith("---\nname: mascotforge\ndescription:")
-    assert "mascotte" in text.lower()
-    assert "avatar animé" in text.lower()
-    assert "donner un visage à mon agent" in text.lower()
+    assert "mascot" in text.lower()
+    assert "animated avatar" in text.lower()
+    assert "a face for an ai agent" in text.lower()
     assert "python -m mascotforge spec guide" in text
     assert "python -m mascotforge blob guide" in text
     assert "mascotforge_spec_preview" in text
     assert "mascotforge_image3d_start" in text
     assert "mascotforge_video_start" in text
-    assert "accord explicite" in text
-    assert "jamais" in text.lower() and "URL" in text
+    assert "explicit user permission" in normalized
+    assert "never" in text.lower() and "URL" in text
     for state in ("idle", "thinking", "talking", "error"):
         assert state in text
 
