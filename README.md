@@ -15,7 +15,7 @@ Design an animated status mascot, watch it follow your agent, and copy the web c
 </p>
 
 <p align="center">
-  <a href="https://arivex-ca.github.io/mascotforge/"><img src="docs/media/demo.gif" alt="MascotForge mascots changing state in AI video, Blob, and 3D styles" width="680"></a>
+  <a href="https://arivex-ca.github.io/mascotforge/"><img src="docs/media/demo.gif" alt="Orbi follows a coding agent in a chat, then the same widget in five styles" width="800"></a>
 </p>
 
 ## Use it for

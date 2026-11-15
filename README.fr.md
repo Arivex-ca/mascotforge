@@ -15,7 +15,7 @@ Conçois une mascotte d'état animée, regarde-la suivre ton agent et copie le c
 </p>
 
 <p align="center">
-  <a href="https://arivex-ca.github.io/mascotforge/"><img src="docs/media/demo.gif" alt="Mascottes MascotForge qui changent d'état en vidéo IA, blob et 3D" width="680"></a>
+  <a href="https://arivex-ca.github.io/mascotforge/"><img src="docs/media/demo.gif" alt="Orbi suit un agent de code dans un chat, puis le même widget en cinq styles" width="800"></a>
 </p>
 
 ## Utilise-la pour
