@@ -1,28 +1,33 @@
-# MascotForge (text-to-mascot)
+<p align="center">
+  <a href="https://arivex-ca.github.io/mascotforge/"><img src="docs/media/og.png" alt="MascotForge playground with a large animated agent mascot and live state controls" width="100%"></a>
+</p>
 
-Give your AI agent a face: describe a mascot or upload an image, choose its animation states, and get an animated mascot with a transparent background, ready for your site or AI agent.
+<h1 align="center">MascotForge</h1>
 
-![MascotForge demo: AI video, free Blob, and free 3D mascots](docs/media/demo.gif)
+<p align="center"><b>Your users can't tell if your agent is thinking or stuck. Give it a face.</b><br>
+Design an animated status mascot, watch it follow your agent, and copy the web component. Blob and 3D styles run free in the browser.</p>
 
-[Français](README.fr.md)
+<p align="center">
+  <a href="https://arivex-ca.github.io/mascotforge/"><b>Try it →</b></a> &nbsp;·&nbsp;
+  <a href="docs/media/demo-video.mp4">Watch the video</a> &nbsp;·&nbsp;
+  <a href="#for-agents">Docs</a> &nbsp;·&nbsp;
+  <a href="README.fr.md">Français</a>
+</p>
 
-```html
-<mascot-avatar manifest="./mascot/manifest.json" label="My assistant"></mascot-avatar>
-<script src="./mascot/mascot.js"></script>
-<script>document.querySelector("mascot-avatar").play("thinking");</script>
-```
+<p align="center">
+  <a href="https://arivex-ca.github.io/mascotforge/"><img src="docs/media/demo.gif" alt="MascotForge mascots changing state in AI video, Blob, and 3D styles" width="680"></a>
+</p>
+
+## Use it for
+
+- A face for your **chat assistant**, with listening, thinking, and talking states.
+- A status indicator for a **coding agent**, from active work to an error or completed task.
+- Visible progress for **background tasks**, so users know the process is alive.
+- A responsive face for a **voice agent**, with state changes that need no mouth animation.
 
 **The first 10 mascots are on me.** [Tell me what your agent does](https://github.com/Arivex-ca/mascotforge/issues/new?title=Mascot%20request%3A%20&body=What%20does%20your%20agent%20do%3F%0A%0AStyle%20%28blob%2C%203D%20or%20video%29%3A%0A%0AHow%20did%20you%20find%20MascotForge%3F%0A) and I'll make yours by hand, free. In return, three questions: would you install it, which states are missing, and what does your agent run on?
 
-Three styles, one `<mascot-avatar>` widget, and one `play(state)` API:
-
-- **AI video**: Kling animates your character with states you define through the pipeline below.
-- **Code Blob**: Blob Atelier by Victoria Wu, MIT, free and instant.
-- **Code 3D**: Wobnimo by Pourya Akhbari, MIT, 20 characters, free and instant.
-
-The studio, the CLI help and the API error messages are in French for now.
-Issues and pull requests in English are welcome: see
-[CONTRIBUTING.md](CONTRIBUTING.md).
+The studio, CLI help, and API errors are in French for now. Issues and pull requests in English are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Gallery
 

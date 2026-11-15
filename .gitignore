@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 data/
+!site/data/
 exports/
 .env
 .pytest_cache/

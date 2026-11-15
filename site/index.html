@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Design an animated face for your AI agent and copy the web component or a shareable link.">
+  <meta name="theme-color" content="#111820">
+  <title>MascotForge Playground | Give your agent a face</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23111820'/%3E%3Ccircle cx='23' cy='31' r='5' fill='%23f9efdc'/%3E%3Ccircle cx='41' cy='31' r='5' fill='%23f9efdc'/%3E%3Cpath d='M18 45c8 6 20 6 28 0' stroke='%23ff6b55' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./vendor/agent-mascot.js"></script>
+  <script>
+    AgentMascot.THREE_URL = new URL("./vendor/three.module.min.js", document.baseURI).href;
+  </script>
+  <script type="module" src="./vendor/mascot-avatar.js"></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workshop">Skip to the workshop</a>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="MascotForge home">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+      <span>MascotForge</span>
+    </a>
+    <nav aria-label="Primary navigation">
+      <a href="#gallery">Gallery</a>
+      <a href="#agent-design">MCP</a>
+      <a class="github-link" href="https://github.com/Arivex-ca/mascotforge">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero" id="workshop" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span> Browser-only playground</p>
+        <h1 id="hero-title">Your users can't tell if your agent is thinking or stuck. <span>Give it a face.</span></h1>
+        <p class="hero-lede">Build an animated status indicator, watch it follow your agent, then copy one web component. No account. No API key for code mascots.</p>
+      </div>
+
+      <div class="forge-stage" aria-label="Live mascot preview">
+        <div class="stage-grid" aria-hidden="true"></div>
+        <div class="stage-signal stage-signal-left" aria-hidden="true"><span></span> LIVE</div>
+        <div class="stage-signal stage-signal-right" aria-hidden="true">STATE / <strong id="stageState">IDLE</strong></div>
+        <agent-mascot id="workshopMascot" shape="mochi" material="jelly" color="peach" eyes="dot" cheeks="true" state="idle" aria-label="Animated MascotForge preview"></agent-mascot>
+        <div class="state-orbit" aria-hidden="true">
+          <span>LISTEN</span><span>THINK</span><span>WORK</span><span>TALK</span><span>DONE</span>
+        </div>
+        <div class="stage-actions">
+          <button class="button button-primary" id="simulateButton" type="button" aria-pressed="false">
+            <span class="button-icon" aria-hidden="true">▶</span>
+            <span class="button-label">Simulate agent</span>
+          </button>
+          <button class="button button-quiet" id="copyLinkButton" type="button">
+            <span aria-hidden="true">↗</span>
+            <span class="button-label">Copy link</span>
+          </button>
+        </div>
+        <p class="stage-caption" id="stageCaption">Idle breathing. Choose a state or run the agent loop.</p>
+      </div>
+
+      <div class="fallback-notice" id="fallbackNotice" role="status" hidden>
+        WebGL2 is unavailable. Animal 3D previews use Blob Atelier's SVG fallback, so every control still works.
+      </div>
+
+      <div class="control-deck" aria-label="Mascot controls">
+        <div class="deck-heading">
+          <div>
+            <p class="section-kicker">01 / BUILD</p>
+            <h2>Shape the signal</h2>
+          </div>
+          <p>Every change is saved in the URL. Send the link and the same mascot opens on the other side.</p>
+        </div>
+
+        <div class="control-grid">
+          <fieldset class="control-panel control-panel-wide">
+            <legend>Style</legend>
+            <div class="segmented" id="seriesControls">
+              <button type="button" data-series="blob" aria-pressed="true"><span class="control-glyph">●</span> Blob</button>
+              <button type="button" data-series="animal" aria-pressed="false"><span class="control-glyph">◆</span> Animal 3D</button>
+            </div>
+          </fieldset>
+
+          <fieldset class="control-panel control-panel-wide">
+            <legend id="shapeLegend">Shape</legend>
+            <div class="option-grid" id="shapeControls"></div>
+          </fieldset>
+
+          <fieldset class="control-panel">
+            <legend id="materialLegend">Finish</legend>
+            <div class="button-stack" id="materialControls"></div>
+          </fieldset>
+
+          <fieldset class="control-panel">
+            <legend>Face</legend>
+            <div class="button-stack" id="eyeControls">
+              <button type="button" data-eyes="dot" aria-pressed="true">Dot eyes</button>
+              <button type="button" data-eyes="capsule" aria-pressed="false">Capsule eyes</button>
+              <button type="button" id="cheeksButton" aria-pressed="true">Rosy cheeks</button>
+            </div>
+          </fieldset>
+
+          <fieldset class="control-panel control-panel-color">
+            <legend>Color</legend>
+            <div class="palette" id="colorControls"></div>
+            <label class="hex-picker" for="customColor">
+              <span>Custom hex</span>
+              <span class="hex-value" id="hexValue">#FFB49C</span>
+              <input id="customColor" type="color" value="#ffb49c" aria-label="Choose a custom mascot color">
+            </label>
+          </fieldset>
+
+          <fieldset class="control-panel control-panel-accessories">
+            <legend>Accessories <span>pick several</span></legend>
+            <div class="accessory-grid" id="accessoryControls"></div>
+            <p class="control-help" id="accessoryHelp">Beret, glasses, and sunglasses render on Animal 3D. Custom accessories work on both styles.</p>
+          </fieldset>
+
+          <fieldset class="control-panel control-panel-wide">
+            <legend>Agent state</legend>
+            <div class="state-grid" id="stateControls"></div>
+          </fieldset>
+        </div>
+      </div>
+
+      <div class="code-card">
+        <div class="code-copy">
+          <p class="section-kicker">02 / SHIP</p>
+          <h2>One tag. Your states.</h2>
+          <p>The snippet includes every custom state and accessory your design needs. The same calls live in the checked-in browser engine.</p>
+          <button class="button button-light" id="copyCodeButton" type="button"><span aria-hidden="true">{ }</span> <span class="button-label">Copy code</span></button>
+        </div>
+        <div class="code-window">
+          <div class="code-bar"><span></span><span></span><span></span><b>agent-mascot.html</b></div>
+          <pre><code id="embedCode"></code></pre>
+        </div>
+      </div>
+
+      <p class="message-bar" id="messageBar" role="status" aria-live="polite">Playground ready. Your design lives in this URL.</p>
+    </section>
+
+    <section class="gallery section-shell" id="gallery" aria-labelledby="gallery-title">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">03 / PROOF</p>
+          <h2 id="gallery-title">Four paths to a face</h2>
+        </div>
+        <p>Use free browser code, bring a custom spec, or spend about one dollar to turn a source image into four AI video states.</p>
+      </div>
+
+      <div class="gallery-grid">
+        <article class="gallery-card gallery-orbi" data-gallery="orbi">
+          <div class="gallery-visual">
+            <span class="gallery-badge">WORKING</span>
+            <div class="orbi-mount" id="orbiMount">
+              <p class="gallery-runtime-message" id="orbiStatus" role="status" hidden>WebGL2 is unavailable, so Orbi's Wobnimo preview cannot render. The workshop Animal 3D style uses its SVG fallback.</p>
+            </div>
+          </div>
+          <div class="gallery-copy"><h3>Orbi</h3><p>3D from one image (about $0.15 to $0.60 for the vision step), then free to run. Its JSON spec adds the keyboard and working pose.</p></div>
+        </article>
+
+        <article class="gallery-card gallery-fox" data-gallery="fox">
+          <div class="gallery-visual"><span class="gallery-badge">AI VIDEO</span><img src="./media/renard-video-etats.gif" alt="Plush fox cycling through idle, thinking, talking, and error states"></div>
+          <div class="gallery-copy"><h3>Fox</h3><p>AI video with your fal.ai key. About $1 for 4 states.</p></div>
+        </article>
+
+        <article class="gallery-card gallery-bunny" data-gallery="bunny">
+          <div class="gallery-visual"><span class="gallery-badge">FREE CODE</span><agent-mascot id="bunnyMascot" shape="bunny" material="knit" color="lilac" state="listening" aria-label="Knitted bunny wearing headphones"></agent-mascot></div>
+          <div class="gallery-copy"><h3>Signal Bunny</h3><p>Free in code. Blob Atelier renders knit fabric and custom headphones in the browser.</p></div>
+        </article>
+
+        <article class="gallery-card gallery-patch" data-gallery="patch">
+          <div class="gallery-visual"><span class="gallery-badge">CUSTOM KIT</span><agent-mascot id="patchMascot" shape="cat" material="fluffy" color="#18243a" eyes="dot" cheeks="true" state="idle" aria-label="Patch the cat wearing a headlamp"></agent-mascot></div>
+          <div class="gallery-copy"><h3>Patch</h3><p>Free in code. Its manifest declares a headlamp and agent-specific states.</p></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="agent-design section-shell" id="agent-design" aria-labelledby="agent-title">
+      <div class="agent-layout">
+        <div class="agent-copy">
+          <p class="section-kicker">04 / DELEGATE</p>
+          <h2 id="agent-title">Let your agent design it</h2>
+          <p class="agent-lede">Connect MascotForge over MCP. Your coding agent reads the shape guide, checks its geometry, inspects the preview, then exports the finished web component.</p>
+          <ol class="agent-steps">
+            <li><span>1</span><div><strong>Read the guide</strong><code>mascotforge_blob_guide</code></div></li>
+            <li><span>2</span><div><strong>Check and preview</strong><code>mascotforge_blob_check + preview</code></div></li>
+            <li><span>3</span><div><strong>Export the result</strong><code>mascotforge_blob_export</code></div></li>
+          </ol>
+        </div>
+        <figure class="agent-proof">
+          <img src="./media/lapin-final.png" alt="Eight-state preview sheet for a rabbit mascot designed through MascotForge MCP tools">
+          <figcaption>A real preview of all ten states (eight built in, two custom) from the check, preview, export loop.</figcaption>
+        </figure>
+      </div>
+
+      <div class="mcp-config">
+        <div class="config-label"><span class="live-dot" aria-hidden="true"></span> ~/.codex/config.toml</div>
+        <pre><code>[mcp_servers.mascotforge]
+command = 'C:\path\to\text-to-mascot\.venv\Scripts\python.exe'
+args = ["-m", "mascotforge", "mcp"]
+cwd = 'C:\path\to\text-to-mascot'
+env = { MASCOTFORGE_URL = "http://localhost:8766" }</code></pre>
+      </div>
+    </section>
+
+    <section class="offer section-shell" aria-labelledby="offer-title">
+      <div>
+        <p class="section-kicker">LIMITED BY HAND</p>
+        <h2 id="offer-title">First 10 mascots are on me.</h2>
+        <p>Tell me what your agent does and I'll make yours by hand, free. In return, three questions: would you install it, which states are missing, and what does your agent run on?</p>
+      </div>
+      <a class="button button-offer" href="https://github.com/Arivex-ca/mascotforge/issues/new?title=Mascot%20request%3A%20&body=What%20does%20your%20agent%20do%3F%0A%0AStyle%20%28blob%2C%203D%20or%20video%29%3A%0A%0AHow%20did%20you%20find%20MascotForge%3F%0A">Request yours <span aria-hidden="true">↗</span></a>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><strong>MascotForge</strong><span>MIT licensed</span></div>
+    <p>Built on <a href="https://github.com/victoriawu-77/blob-atelier">Blob Atelier</a> by Victoria Wu, <a href="https://github.com/Pouryaak/wobnimo">Wobnimo</a> by Pourya Akhbari, and <a href="https://threejs.org/">three.js</a>.</p>
+    <a href="https://github.com/Arivex-ca/mascotforge">github.com/Arivex-ca/mascotforge</a>
+  </footer>
+</body>
+</html>

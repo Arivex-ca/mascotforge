@@ -1,0 +1,115 @@
+{
+  "version": 2,
+  "name": "Patch",
+  "engine": "blob",
+  "engine_src": "engines/agent-mascot.js",
+  "engine_config": {
+    "shape": "cat",
+    "material": "fluffy",
+    "color": "#18243a",
+    "eyes": "dot",
+    "cheeks": "true",
+    "accessory": "night-headlamp",
+    "acc-color": "#F6C85F"
+  },
+  "default_state": "idle",
+  "alpha": "none",
+  "states": {
+    "idle": {
+      "loop": true
+    },
+    "listening": {
+      "loop": true
+    },
+    "thinking": {
+      "loop": true
+    },
+    "talking": {
+      "loop": true
+    },
+    "working": {
+      "loop": true
+    },
+    "happy": {
+      "loop": true
+    },
+    "done": {
+      "loop": true
+    },
+    "error": {
+      "loop": true
+    },
+    "sleeping": {
+      "loop": true
+    },
+    "waiting-for-approval": {
+      "loop": true
+    }
+  },
+  "credit": "Blob Atelier, par Victoria Wu (licence MIT)",
+  "engine_states": {
+    "sleeping": {
+      "like": "idle",
+      "lid": 0.08,
+      "breath": 4,
+      "bob": 0
+    },
+    "waiting-for-approval": {
+      "like": "thinking",
+      "lid": 0.62,
+      "breath": 3,
+      "bob": 0
+    }
+  },
+  "engine_accessories": {
+    "night-headlamp": {
+      "anchor": "eyes",
+      "parts": [
+        {
+          "shape": "torus",
+          "size": [
+            1.28,
+            0.055
+          ],
+          "at": [
+            0,
+            0.24,
+            -0.08
+          ],
+          "arc": 180,
+          "material": "felt",
+          "color": "#56657F"
+        },
+        {
+          "shape": "capsule",
+          "size": [
+            0.24,
+            0.28
+          ],
+          "at": [
+            0,
+            0.33,
+            0.14
+          ],
+          "material": "felt",
+          "color": "#303A4E"
+        },
+        {
+          "shape": "capsule",
+          "size": [
+            0.14,
+            0.2
+          ],
+          "at": [
+            0,
+            0.34,
+            0.22
+          ],
+          "material": "glossy-plastic",
+          "color": "#F6C85F"
+        }
+      ]
+    }
+  },
+  "engine_three_src": "engines/vendor/three.module.min.js"
+}

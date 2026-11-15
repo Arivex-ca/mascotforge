@@ -1,26 +1,31 @@
-[English](README.md)
+<p align="center">
+  <a href="https://arivex-ca.github.io/mascotforge/"><img src="docs/media/og.png" alt="Terrain d'essai MascotForge avec une grande mascotte d'agent et ses états en direct" width="100%"></a>
+</p>
 
-# MascotForge (text-to-mascot)
+<h1 align="center">MascotForge</h1>
 
-Brique produit Arivex : tu décris une mascotte (ou tu envoies son image), tu
-choisis ses états d'animation, et l'outil sort une mascotte animée à fond
-transparent, prête à coller dans un site ou devant un agent IA.
+<p align="center"><b>Tes utilisateurs ne savent pas si ton agent réfléchit ou s'il est planté. Donne-lui un visage.</b><br>
+Conçois une mascotte d'état animée, regarde-la suivre ton agent et copie le composant web. Les styles blob et 3D tournent gratuitement dans le navigateur.</p>
 
-![Démo MascotForge : vidéo IA, blob et 3D gratuits](docs/media/demo.gif)
+<p align="center">
+  <a href="https://arivex-ca.github.io/mascotforge/"><b>Essayer →</b></a> &nbsp;·&nbsp;
+  <a href="docs/media/demo-video.mp4">Voir la vidéo</a> &nbsp;·&nbsp;
+  <a href="#pour-les-agents">Documentation</a> &nbsp;·&nbsp;
+  <a href="README.md">English</a>
+</p>
 
-```html
-<mascot-avatar manifest="./mascot/manifest.json" label="Mon assistant"></mascot-avatar>
-<script src="./mascot/mascot.js"></script>
-<script>document.querySelector("mascot-avatar").play("thinking");</script>
-```
+<p align="center">
+  <a href="https://arivex-ca.github.io/mascotforge/"><img src="docs/media/demo.gif" alt="Mascottes MascotForge qui changent d'état en vidéo IA, blob et 3D" width="680"></a>
+</p>
+
+## Utilise-la pour
+
+- Donner un visage à ton **assistant de chat**, avec les états écoute, réflexion et parole.
+- Montrer l'état d'un **agent de code**, du travail actif jusqu'à l'erreur ou la tâche terminée.
+- Rendre visibles les **tâches en arrière-plan**, pour que l'utilisateur sache que le processus avance.
+- Donner un visage réactif à un **agent vocal**, sans dépendre d'une animation de bouche.
 
 **Les 10 premières mascottes sont offertes.** [Dis-moi ce que fait ton agent](https://github.com/Arivex-ca/mascotforge/issues/new?title=Demande%20de%20mascotte%20%3A%20&body=Que%20fait%20ton%20agent%20%3F%0A%0AStyle%20%28blob%2C%203D%20ou%20vid%C3%A9o%29%20%3A%0A%0AComment%20as-tu%20trouv%C3%A9%20MascotForge%20%3F%0A) et je fais la tienne à la main, gratuitement. En échange, trois questions : l'installerais-tu, quels états manquent, et sur quoi tourne ton agent ?
-
-Trois styles, un seul widget `<mascot-avatar>` et une seule API `play(etat)` :
-
-- **Vidéo IA** : ton personnage animé par Kling, états à la demande (pipeline ci-dessous).
-- **Blob en code** : Blob Atelier (Victoria Wu, MIT), gratuit et instantané.
-- **3D en code** : Wobnimo (Pourya Akhbari, MIT), 20 personnages, gratuit et instantané.
 
 ## Galerie
 

@@ -1,0 +1,1031 @@
+{
+  "id": "img-9869a3a30e71",
+  "name": "Orbi",
+  "tagline": "A glossy white helper bot with a glowing purple smile",
+  "accent": "#9b6bff",
+  "frame": {
+    "target": 0.5,
+    "radius": 0.62
+  },
+  "bound": {
+    "y": 0.46,
+    "radius": 0.68
+  },
+  "motion": {
+    "float": 0.1,
+    "hop": 0.12,
+    "squash": 0.9,
+    "snap": 1
+  },
+  "glowPool": 0.25,
+  "materials": {
+    "shell": {
+      "color": "#e8e4f4",
+      "f0": 0.06,
+      "spec": 1.6,
+      "shininess": 140,
+      "rim": 0.6,
+      "gloss": 0.85,
+      "sss": 0.15,
+      "sssColor": "#f3eaff"
+    },
+    "lilac": {
+      "color": "#d3c6f0",
+      "f0": 0.06,
+      "spec": 1.5,
+      "shininess": 130,
+      "rim": 0.6,
+      "gloss": 0.8,
+      "sss": 0.2,
+      "sssColor": "#e8dcff"
+    },
+    "rubber": {
+      "color": "#1c1a24",
+      "f0": 0.03,
+      "spec": 0.3,
+      "shininess": 20,
+      "rim": 0.2
+    },
+    "metal": {
+      "color": "#4a4a56",
+      "f0": 0.45,
+      "spec": 1,
+      "shininess": 120,
+      "metal": 0.85,
+      "rim": 0.3,
+      "gloss": 0.7
+    },
+    "logo": {
+      "color": "#3a3a44",
+      "f0": 0.05,
+      "spec": 0.8,
+      "shininess": 80,
+      "rim": 0.2,
+      "gloss": 0.6
+    },
+    "screen": {
+      "color": "#05030a",
+      "f0": 0.045,
+      "spec": 1.6,
+      "shininess": 260,
+      "rim": 0.1,
+      "gloss": 1
+    },
+    "ring": {
+      "color": "#d9c8ff",
+      "f0": 0.04,
+      "spec": 0.4,
+      "shininess": 30,
+      "rim": 0.3,
+      "emit": "#a57bff",
+      "emitStrength": 1.3
+    },
+    "lens": {
+      "color": "#0e0b16",
+      "f0": 0.06,
+      "spec": 1.8,
+      "shininess": 220,
+      "rim": 0.2,
+      "gloss": 0.95
+    },
+    "keys": {
+      "color": "#bfa7ff",
+      "f0": 0.06,
+      "spec": 1.5,
+      "shininess": 180,
+      "rim": 0.4,
+      "gloss": 0.9,
+      "emit": "#8d5cff",
+      "emitStrength": 0.85
+    }
+  },
+  "bones": [
+    {
+      "name": "body",
+      "pivot": [
+        0,
+        0,
+        0
+      ],
+      "drive": {
+        "ry": [
+          [
+            "yaw",
+            0.2
+          ]
+        ],
+        "rz": [
+          [
+            "roll",
+            0.25
+          ]
+        ]
+      }
+    },
+    {
+      "name": "head",
+      "parent": "body",
+      "pivot": [
+        0,
+        0.4,
+        0
+      ],
+      "drive": {
+        "rx": [
+          [
+            "pitch",
+            -1
+          ]
+        ],
+        "ry": [
+          [
+            "yaw",
+            0.8
+          ]
+        ],
+        "rz": [
+          [
+            "roll",
+            0.7
+          ]
+        ]
+      }
+    },
+    {
+      "name": "shoulderL",
+      "parent": "body",
+      "pivot": [
+        -0.26,
+        0.19,
+        0
+      ],
+      "drive": {
+        "rz": [
+          [
+            "flap",
+            -0.5
+          ]
+        ]
+      }
+    },
+    {
+      "name": "shoulderR",
+      "parent": "body",
+      "pivot": [
+        0.26,
+        0.19,
+        0
+      ],
+      "drive": {
+        "rz": [
+          [
+            "flap",
+            0.5
+          ]
+        ]
+      }
+    },
+    {
+      "name": "keyboardStow",
+      "parent": "body",
+      "pivot": [
+        0,
+        0,
+        -0.5
+      ]
+    },
+    {
+      "name": "keyboard",
+      "parent": "keyboardStow",
+      "pivot": [
+        -0.463337,
+        0.45,
+        0.45
+      ]
+    }
+  ],
+  "parts": [
+    {
+      "bone": "body",
+      "shape": "ellipsoid",
+      "at": [
+        0,
+        0.175,
+        0
+      ],
+      "radii": [
+        0.27,
+        0.178,
+        0.23
+      ],
+      "material": "shell"
+    },
+    {
+      "bone": "body",
+      "shape": "capsule",
+      "from": [
+        -0.035,
+        0.105,
+        0.208
+      ],
+      "to": [
+        0,
+        0.15,
+        0.224
+      ],
+      "radius": 0.012,
+      "material": "logo"
+    },
+    {
+      "bone": "body",
+      "shape": "capsule",
+      "from": [
+        0.035,
+        0.105,
+        0.208
+      ],
+      "to": [
+        0,
+        0.15,
+        0.224
+      ],
+      "radius": 0.012,
+      "material": "logo"
+    },
+    {
+      "bone": "body",
+      "shape": "cylinder",
+      "at": [
+        0,
+        0.355,
+        0
+      ],
+      "radius": 0.09,
+      "half": 0.035,
+      "round": 0.015,
+      "material": "metal"
+    },
+    {
+      "bone": "head",
+      "shape": "ellipsoid",
+      "at": [
+        0,
+        0.24,
+        0
+      ],
+      "radii": [
+        0.38,
+        0.28,
+        0.34
+      ],
+      "material": "shell"
+    },
+    {
+      "bone": "head",
+      "shape": "roundBox",
+      "op": "sub",
+      "blend": 0.02,
+      "at": [
+        0,
+        0.24,
+        0.37
+      ],
+      "half": [
+        0.28,
+        0.215,
+        0.1
+      ],
+      "round": 0.08,
+      "material": "shell"
+    },
+    {
+      "bone": "head",
+      "shape": "frame",
+      "at": [
+        0,
+        0.24,
+        0.262
+      ],
+      "half": [
+        0.26,
+        0.195
+      ],
+      "corner": 0.09,
+      "width": 0.02,
+      "depth": 0.025,
+      "material": "shell"
+    },
+    {
+      "bone": "head",
+      "shape": "plate",
+      "at": [
+        0,
+        0.24,
+        0.26
+      ],
+      "half": [
+        0.24,
+        0.175
+      ],
+      "corner": 0.08,
+      "depth": 0.012,
+      "material": "screen"
+    },
+    {
+      "bone": "head",
+      "shape": "cylinder",
+      "at": [
+        -0.4,
+        0.24,
+        0
+      ],
+      "rot": [
+        0,
+        0,
+        1.5708
+      ],
+      "radius": 0.1,
+      "half": 0.036,
+      "round": 0.012,
+      "material": "shell"
+    },
+    {
+      "bone": "head",
+      "shape": "cylinder",
+      "at": [
+        -0.4,
+        0.24,
+        0
+      ],
+      "rot": [
+        0,
+        0,
+        1.5708
+      ],
+      "radius": 0.088,
+      "half": 0.04,
+      "round": 0.008,
+      "material": "metal"
+    },
+    {
+      "bone": "head",
+      "shape": "cylinder",
+      "at": [
+        -0.4,
+        0.24,
+        0
+      ],
+      "rot": [
+        0,
+        0,
+        1.5708
+      ],
+      "radius": 0.076,
+      "half": 0.043,
+      "round": 0.008,
+      "material": "ring"
+    },
+    {
+      "bone": "head",
+      "shape": "cylinder",
+      "at": [
+        -0.4,
+        0.24,
+        0
+      ],
+      "rot": [
+        0,
+        0,
+        1.5708
+      ],
+      "radius": 0.062,
+      "half": 0.046,
+      "round": 0.008,
+      "material": "lens"
+    },
+    {
+      "bone": "head",
+      "shape": "cylinder",
+      "at": [
+        0.4,
+        0.24,
+        0
+      ],
+      "rot": [
+        0,
+        0,
+        1.5708
+      ],
+      "radius": 0.1,
+      "half": 0.036,
+      "round": 0.012,
+      "material": "shell"
+    },
+    {
+      "bone": "head",
+      "shape": "cylinder",
+      "at": [
+        0.4,
+        0.24,
+        0
+      ],
+      "rot": [
+        0,
+        0,
+        1.5708
+      ],
+      "radius": 0.088,
+      "half": 0.04,
+      "round": 0.008,
+      "material": "metal"
+    },
+    {
+      "bone": "head",
+      "shape": "cylinder",
+      "at": [
+        0.4,
+        0.24,
+        0
+      ],
+      "rot": [
+        0,
+        0,
+        1.5708
+      ],
+      "radius": 0.076,
+      "half": 0.043,
+      "round": 0.008,
+      "material": "ring"
+    },
+    {
+      "bone": "head",
+      "shape": "cylinder",
+      "at": [
+        0.4,
+        0.24,
+        0
+      ],
+      "rot": [
+        0,
+        0,
+        1.5708
+      ],
+      "radius": 0.062,
+      "half": 0.046,
+      "round": 0.008,
+      "material": "lens"
+    },
+    {
+      "bone": "shoulderL",
+      "shape": "sphere",
+      "radius": 0.095,
+      "material": "shell"
+    },
+    {
+      "bone": "shoulderL",
+      "shape": "roundCone",
+      "from": [
+        0,
+        -0.05,
+        0.01
+      ],
+      "to": [
+        -0.015,
+        -0.15,
+        0.045
+      ],
+      "r1": 0.05,
+      "r2": 0.04,
+      "material": "lilac"
+    },
+    {
+      "bone": "shoulderR",
+      "shape": "sphere",
+      "radius": 0.095,
+      "material": "shell"
+    },
+    {
+      "bone": "shoulderR",
+      "shape": "roundCone",
+      "from": [
+        0,
+        -0.05,
+        0.01
+      ],
+      "to": [
+        0.015,
+        -0.15,
+        0.045
+      ],
+      "r1": 0.05,
+      "r2": 0.04,
+      "material": "lilac"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.463337,
+        -0.059,
+        -0.32
+      ],
+      "half": [
+        0.205,
+        0.022,
+        0.17
+      ],
+      "round": 0.018,
+      "material": "rubber"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.463337,
+        -0.078,
+        -0.32
+      ],
+      "half": [
+        0.187,
+        0.009,
+        0.147
+      ],
+      "round": 0.009,
+      "material": "metal"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.343337,
+        -0.03,
+        -0.4
+      ],
+      "half": [
+        0.023,
+        0.009,
+        0.018
+      ],
+      "round": 0.006,
+      "material": "keys"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.403337,
+        -0.03,
+        -0.4
+      ],
+      "half": [
+        0.023,
+        0.009,
+        0.018
+      ],
+      "round": 0.006,
+      "material": "keys"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.463337,
+        -0.03,
+        -0.4
+      ],
+      "half": [
+        0.023,
+        0.009,
+        0.018
+      ],
+      "round": 0.006,
+      "material": "keys"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.523337,
+        -0.03,
+        -0.4
+      ],
+      "half": [
+        0.023,
+        0.009,
+        0.018
+      ],
+      "round": 0.006,
+      "material": "keys"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.583337,
+        -0.03,
+        -0.4
+      ],
+      "half": [
+        0.023,
+        0.009,
+        0.018
+      ],
+      "round": 0.006,
+      "material": "keys"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.343337,
+        -0.03,
+        -0.32
+      ],
+      "half": [
+        0.023,
+        0.009,
+        0.018
+      ],
+      "round": 0.006,
+      "material": "keys"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.403337,
+        -0.03,
+        -0.32
+      ],
+      "half": [
+        0.023,
+        0.009,
+        0.018
+      ],
+      "round": 0.006,
+      "material": "keys"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.463337,
+        -0.03,
+        -0.32
+      ],
+      "half": [
+        0.023,
+        0.009,
+        0.018
+      ],
+      "round": 0.006,
+      "material": "keys"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.523337,
+        -0.03,
+        -0.32
+      ],
+      "half": [
+        0.023,
+        0.009,
+        0.018
+      ],
+      "round": 0.006,
+      "material": "keys"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.583337,
+        -0.03,
+        -0.32
+      ],
+      "half": [
+        0.023,
+        0.009,
+        0.018
+      ],
+      "round": 0.006,
+      "material": "keys"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.313337,
+        -0.03,
+        -0.24
+      ],
+      "half": [
+        0.02,
+        0.009,
+        0.018
+      ],
+      "round": 0.006,
+      "material": "keys"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.463337,
+        -0.03,
+        -0.24
+      ],
+      "half": [
+        0.082,
+        0.009,
+        0.018
+      ],
+      "round": 0.006,
+      "material": "keys"
+    },
+    {
+      "bone": "keyboard",
+      "shape": "roundBox",
+      "at": [
+        0.613337,
+        -0.03,
+        -0.24
+      ],
+      "half": [
+        0.02,
+        0.009,
+        0.018
+      ],
+      "round": 0.006,
+      "material": "keys"
+    }
+  ],
+  "face": {
+    "kind": "screen",
+    "bone": "head",
+    "material": "screen",
+    "center": [
+      0,
+      0.24
+    ],
+    "half": [
+      0.24,
+      0.175
+    ],
+    "corner": 0.08,
+    "cell": 0.03,
+    "color": "#c9a2ff"
+  },
+  "anchors": {
+    "top": {
+      "bone": "head",
+      "at": [
+        0.15,
+        0.56,
+        0.05
+      ]
+    },
+    "mouth": {
+      "bone": "head",
+      "at": [
+        0,
+        0.12,
+        0.3
+      ]
+    },
+    "ear": {
+      "bone": "head",
+      "at": [
+        -0.46,
+        0.24,
+        0
+      ]
+    },
+    "feet": {
+      "bone": "root",
+      "at": [
+        0,
+        0.02,
+        0.1
+      ]
+    }
+  },
+  "acting": {
+    "idle": {
+      "shoulderL": {
+        "rz": [
+          -0.06,
+          0.04,
+          0.45,
+          0
+        ]
+      },
+      "shoulderR": {
+        "rz": [
+          0.06,
+          0.04,
+          0.45,
+          1.6
+        ]
+      }
+    },
+    "thinking": {
+      "head": {
+        "rz": 0.14,
+        "rx": -0.1
+      },
+      "shoulderR": {
+        "rx": -1.2,
+        "rz": 0.1
+      }
+    },
+    "listening": {
+      "head": {
+        "rz": -0.12,
+        "rx": 0.05
+      },
+      "shoulderL": {
+        "rz": -0.1
+      },
+      "shoulderR": {
+        "rz": 0.1
+      }
+    },
+    "speaking": {
+      "shoulderL": {
+        "rx": [
+          -0.3,
+          0.2,
+          0.7,
+          0
+        ],
+        "rz": [
+          -0.2,
+          0.1,
+          0.5,
+          0
+        ]
+      },
+      "shoulderR": {
+        "rx": [
+          -0.3,
+          0.2,
+          0.7,
+          2
+        ],
+        "rz": [
+          0.2,
+          0.1,
+          0.5,
+          1
+        ]
+      }
+    },
+    "working": {
+      "head": {
+        "rx": 0.18
+      },
+      "keyboard": {
+        "rx": -0.45,
+        "ry": 1.5416
+      },
+      "shoulderL": {
+        "rx": [
+          -1.25,
+          0.22,
+          7.5,
+          0
+        ],
+        "rz": [
+          0.75,
+          0.08,
+          7.5,
+          0
+        ]
+      },
+      "shoulderR": {
+        "rx": [
+          -1.25,
+          0.22,
+          7.5,
+          3.14
+        ],
+        "rz": [
+          -0.75,
+          0.08,
+          7.5,
+          3.14
+        ]
+      },
+      "keyboardStow": {
+        "ry": 1.6
+      }
+    },
+    "error": {
+      "head": {
+        "rz": [
+          0,
+          0.06,
+          10,
+          0
+        ]
+      },
+      "shoulderL": {
+        "rz": [
+          -0.4,
+          0.1,
+          10,
+          0
+        ]
+      },
+      "shoulderR": {
+        "rz": [
+          0.4,
+          0.1,
+          10,
+          1
+        ]
+      }
+    },
+    "surprised": {
+      "shoulderL": {
+        "rz": -1.2
+      },
+      "shoulderR": {
+        "rz": 1.2
+      },
+      "head": {
+        "rx": -0.15
+      }
+    },
+    "celebrating": {
+      "shoulderL": {
+        "rz": [
+          -2.2,
+          0.3,
+          4,
+          0
+        ]
+      },
+      "shoulderR": {
+        "rz": [
+          2.2,
+          0.3,
+          4,
+          3.14
+        ]
+      },
+      "head": {
+        "rz": [
+          0,
+          0.12,
+          2,
+          0
+        ]
+      }
+    },
+    "sad": {
+      "head": {
+        "rx": 0.35
+      },
+      "shoulderL": {
+        "rz": 0.12
+      },
+      "shoulderR": {
+        "rz": -0.12
+      }
+    },
+    "sleeping": {
+      "head": {
+        "rx": 0.45,
+        "rz": 0.1
+      },
+      "shoulderL": {
+        "rz": 0.1
+      },
+      "shoulderR": {
+        "rz": -0.1
+      }
+    },
+    "happy": {
+      "shoulderL": {
+        "rz": [
+          -1.8,
+          0.25,
+          3,
+          0
+        ]
+      },
+      "shoulderR": {
+        "rz": [
+          1.8,
+          0.25,
+          3,
+          1.5
+        ]
+      }
+    }
+  }
+}
