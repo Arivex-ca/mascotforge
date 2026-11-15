@@ -9,7 +9,7 @@ Design an animated status mascot, watch it follow your agent, and copy the web c
 
 <p align="center">
   <a href="https://arivex-ca.github.io/mascotforge/"><b>Try it →</b></a> &nbsp;·&nbsp;
-  <a href="docs/media/demo-video.mp4">Watch the video</a> &nbsp;·&nbsp;
+  <a href="https://arivex-ca.github.io/mascotforge/media/demo-video.mp4">Watch the video</a> &nbsp;·&nbsp;
   <a href="#for-agents">Docs</a> &nbsp;·&nbsp;
   <a href="README.fr.md">Français</a>
 </p>

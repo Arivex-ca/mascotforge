@@ -9,7 +9,7 @@ Conçois une mascotte d'état animée, regarde-la suivre ton agent et copie le c
 
 <p align="center">
   <a href="https://arivex-ca.github.io/mascotforge/"><b>Essayer →</b></a> &nbsp;·&nbsp;
-  <a href="docs/media/demo-video.mp4">Voir la vidéo</a> &nbsp;·&nbsp;
+  <a href="https://arivex-ca.github.io/mascotforge/media/demo-video.mp4">Voir la vidéo</a> &nbsp;·&nbsp;
   <a href="#pour-les-agents">Documentation</a> &nbsp;·&nbsp;
   <a href="README.md">English</a>
 </p>
