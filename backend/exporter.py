@@ -70,10 +70,13 @@ Moteur : {credit}.
 - `manifest.json` : moteur, reglages et etats
 - `engines/{script_name}` : le moteur embarque
 - `engines/LICENSE` : sa licence MIT, a garder avec le fichier
+{vendor_list}
 
 ## Integration (chemins relatifs)
 
-Copiez le dossier `mascot/` a cote de votre page, puis :
+Copiez le dossier `mascot/` a cote de votre page, puis servez le projet en HTTP.
+Pour un essai local : `python -m http.server 8000`. Ouvrir directement le fichier
+HTML en `file://` ne charge pas les modules 3D locaux.
 
 ```html
 <mascot-avatar manifest="./mascot/manifest.json" label="{name}"></mascot-avatar>
@@ -84,7 +87,7 @@ Copiez le dossier `mascot/` a cote de votre page, puis :
 
 ```js
 const avatar = document.querySelector("mascot-avatar");
-avatar.play("thinking"); // {state_list}
+avatar.play("{example_state}"); // {state_list}
 ```
 
 La mascotte suit le curseur d'elle-meme ; `follow-cursor="false"` fige son
@@ -114,11 +117,28 @@ def _build_engine_archive(engine: str, name: str, manifest: dict) -> dict:
     shutil.copyfile(widget_src, root / "mascot" / "mascot.js")
     shutil.copyfile(script, engine_dir / script.name)
     shutil.copyfile(engines_module.license_path(engine), engine_dir / "LICENSE")
+    vendor_list = ""
+    if manifest.get("engine_three_src"):
+        vendor_source = settings.engines_dir() / "blob-atelier" / "vendor"
+        vendor_dir = engine_dir / "vendor"
+        module = vendor_source / "three.module.min.js"
+        license_file = vendor_source / "three.LICENSE.txt"
+        if not module.is_file() or not license_file.is_file():
+            raise ExportError("Export animal impossible : three.js local ou sa licence est introuvable.")
+        vendor_dir.mkdir()
+        shutil.copyfile(module, vendor_dir / module.name)
+        shutil.copyfile(license_file, vendor_dir / license_file.name)
+        vendor_list = (
+            "- `engines/vendor/three.module.min.js` : three.js local pour le rendu 3D hors ligne\n"
+            "- `engines/vendor/three.LICENSE.txt` : licence MIT de three.js, a garder avec le module\n"
+        )
 
     (root / "mascot" / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     readme = ENGINE_README_TEMPLATE.format(
         name=name, credit=spec["credit"], source=spec["source"],
-        script_name=script.name, state_list=", ".join(spec["states"]),
+        script_name=script.name, state_list=", ".join(manifest["states"]),
+        example_state="sleeping" if "sleeping" in manifest["states"] else "thinking",
+        vendor_list=vendor_list,
     )
     if "\u2014" in readme:  # garde-fou : aucun em dash dans les textes utilisateur
         raise ExportError("Le template README contient un em dash (interdit).")

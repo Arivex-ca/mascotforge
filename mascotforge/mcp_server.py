@@ -25,8 +25,8 @@ SPEC_LOOP = (
 )
 
 BLOB_LOOP = (
-    "Boucle gratuite : lire le guide blob, ecrire la fiche JSON, lancer le check, "
-    "regarder les huit etats dans la preview, corriger, puis exporter. "
+    "Boucle gratuite : lire le guide Blob Atelier v2, ecrire la fiche JSON d'un blob ou animal 3D, "
+    "lancer le check, regarder tous les etats et accessoires dans la preview, corriger, puis exporter. "
 )
 
 
@@ -51,44 +51,55 @@ def _video_estimate(
     }
 
 
+def _out_dir(out: str) -> Path:
+    """Le serveur MCP ne tourne pas dans le dossier de l'agent : un chemin relatif irait ailleurs."""
+    path = Path(out).expanduser()
+    if not path.is_absolute():
+        raise ValueError(
+            f"out doit etre un chemin absolu ({out!r} est relatif). "
+            "Le serveur MCP tourne dans son propre dossier : donnez le chemin complet du dossier voulu."
+        )
+    return path
+
+
 @mcp.tool(description="Liste les styles, reglages, etats et prix du serveur MascotForge.")
 def mascotforge_styles() -> dict[str, Any]:
     with MascotForgeClient() as client:
         return client.styles()
 
 
-@mcp.tool(description="Exporte une mascotte gratuite Blob Atelier ou Wobnimo dans un dossier local.")
+@mcp.tool(description="Exporte une mascotte gratuite Blob Atelier ou Wobnimo dans un dossier local (out : chemin absolu).")
 def mascotforge_code(
     engine: str,
     out: str,
     config: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     with MascotForgeClient() as client:
-        return client.export_code(engine, config or {}, Path(out))
+        return client.export_code(engine, config or {}, _out_dir(out))
 
 
-@mcp.tool(description=BLOB_LOOP + "Renvoie le guide et trois exemples complets.")
+@mcp.tool(description=BLOB_LOOP + "Renvoie le format v2 et deux exemples complets avec etats et accessoires libres.")
 def mascotforge_blob_guide() -> dict[str, str]:
     with MascotForgeClient() as client:
         return {"guide": client.blob_guide()}
 
 
-@mcp.tool(description=BLOB_LOOP + "Verifie le contour et chaque reglage sans rien conserver.")
+@mcp.tool(description=BLOB_LOOP + "Verifie la serie, la forme, les etats, les accessoires et chaque borne sans rien conserver.")
 def mascotforge_blob_check(spec: dict[str, Any]) -> dict[str, Any]:
     with MascotForgeClient() as client:
         return client.blob_check(spec)
 
 
-@mcp.tool(description=BLOB_LOOP + "Rend la planche des huit etats comme contenu image MCP.")
+@mcp.tool(description=BLOB_LOOP + "Rend la planche de tous les etats comme contenu image MCP.")
 def mascotforge_blob_preview(spec: dict[str, Any]) -> Image:
     with MascotForgeClient() as client:
         return Image(data=client.blob_preview(spec), format="png")
 
 
-@mcp.tool(description=BLOB_LOOP + "Verifie et exporte le dossier autonome dans un dossier local.")
+@mcp.tool(description=BLOB_LOOP + "Verifie et exporte le dossier autonome dans un dossier local (out : chemin absolu).")
 def mascotforge_blob_export(spec: dict[str, Any], out: str) -> dict[str, Any]:
     with MascotForgeClient() as client:
-        return client.blob_export(spec, Path(out))
+        return client.blob_export(spec, _out_dir(out))
 
 
 @mcp.tool(description=SPEC_LOOP + "Renvoie le guide Wobnimo complet et l'exemple Volt.")
@@ -123,7 +134,7 @@ def mascotforge_spec_save(spec: dict[str, Any]) -> dict[str, Any]:
 @mcp.tool(description=SPEC_LOOP + "Verifie, conserve et exporte la fiche dans un dossier local.")
 def mascotforge_spec_export(spec: dict[str, Any], out: str) -> dict[str, Any]:
     with MascotForgeClient() as client:
-        return client.spec_export(spec, Path(out))
+        return client.spec_export(spec, _out_dir(out))
 
 
 @mcp.tool(
@@ -189,7 +200,7 @@ def mascotforge_status(creation_id: str) -> dict[str, Any]:
 @mcp.tool(description="Exporte une creation terminee et decompresse son zip dans un dossier local.")
 def mascotforge_export(creation_id: str, out: str) -> dict[str, Any]:
     with MascotForgeClient() as client:
-        return client.export_creation(creation_id, Path(out))
+        return client.export_creation(creation_id, _out_dir(out))
 
 
 @mcp.tool(description="Affiche les depenses, reservations et le plafond du serveur MascotForge.")

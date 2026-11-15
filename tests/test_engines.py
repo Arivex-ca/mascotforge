@@ -17,6 +17,10 @@ def test_catalog_lists_both_engines_with_credits(client):
     assert "Pourya Akhbari" in body["3d"]["credit"]
     assert "talking" in body["blob"]["states"] and "speaking" in body["3d"]["states"]
     assert "volt" in body["3d"]["options"]["character"]
+    assert body["blob"]["series"]["animal"]["shapes"] == [
+        "bunny", "cat", "dog", "frog", "hamster", "bear", "panda", "chick",
+    ]
+    assert body["blob"]["series"]["animal"]["materials"] == ["fluffy", "knit", "felt"]
 
 
 def test_engine_files_are_served(client):
@@ -66,3 +70,24 @@ def test_engine_export_ships_engine_licence_and_credits(client):
     assert EM_DASH not in readme
 
     assert client.post("/api/engines/3d/export", json={"config": {"character": "godzilla"}}).status_code == 400
+
+
+def test_named_blob_atelier_animal_export_ships_local_three(client):
+    resp = client.post(
+        "/api/engines/blob/export",
+        json={"config": {"shape": "bunny", "material": "knit", "color": "sky"}},
+    )
+    assert resp.status_code == 200, resp.text
+    archive = zipfile.ZipFile(io.BytesIO(client.get(resp.json()["download_url"]).content))
+    names = set(archive.namelist())
+    manifest = json.loads(archive.read("mascot/manifest.json"))
+    assert manifest["engine_config"]["shape"] == "bunny"
+    assert manifest["engine_three_src"] == "engines/vendor/three.module.min.js"
+    assert "mascot/engines/vendor/three.module.min.js" in names
+    assert "mascot/engines/vendor/three.LICENSE.txt" in names
+
+    incompatible = client.post(
+        "/api/engines/blob/export",
+        json={"config": {"shape": "bunny", "material": "jelly"}},
+    )
+    assert incompatible.status_code == 400

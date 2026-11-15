@@ -6,7 +6,8 @@ dans chaque export.
 
 | Moteur | Auteur | Licence | Source | Version embarquée | SHA-256 |
 |---|---|---|---|---|---|
-| Blob Atelier (`blob-atelier/agent-mascot.js`) | Victoria Wu | MIT | https://github.com/victoriawu-77/blob-atelier | commit `c76954a` du 2026-10-24, correctif MascotForge | `9081e670a26faba9a2711c66a1069284147993089c3ba51daa81f5c698d390bf` |
+| Blob Atelier (`blob-atelier/agent-mascot.js`) | Victoria Wu | MIT | https://github.com/victoriawu-77/blob-atelier | fork https://github.com/Arivex-ca/blob-atelier, branche `states-accessories-offline`, commit `e611a55` (sur `c76954a` du 2026-10-24) | `341e9eae43524c4a5b16bfc6f50c783ecdb027970c3f99d9ef183315453c96c4` |
+| three.js (`blob-atelier/vendor/three.module.min.js`) | three.js authors | MIT | https://github.com/mrdoob/three.js | paquet npm `three@0.170.0`, `build/three.module.min.js`, non modifié | `08fd7545d13d2c7fb65ab691530a802dafefd638596501854f267d0fb13c39e7` |
 | Wobnimo (`wobnimo/dist/wobnimo.js`) | Pourya Akhbari | MIT | https://github.com/Pouryaak/wobnimo | paquet npm `wobnimo@0.2.0`, `dist/wobnimo.js` | `85443e0bd564e9e8428aced315346d80c304d647b8859bdb95b5203a2b5752ef` |
 
 Pour créer un personnage Wobnimo à partir d'une image, MascotForge embarque
@@ -26,20 +27,26 @@ de `dist/wobnimo.js`) : l'aperçu de `cli.js` cherche le moteur à cet endroit.
 
 Ce que MascotForge en utilise :
 
-- Blob Atelier : la série « blobs » seulement (8 formes, 6 matières). Ses
-  animaux 3D chargent three.js depuis un CDN externe ; MascotForge ne les
-  propose pas, pour qu'une mascotte n'appelle aucun serveur tiers.
+- Blob Atelier : les blobs (8 formes, 6 matières, contours sur mesure) et les
+  8 animaux 3D (3 tissus), avec accessoires et états sur mesure. three.js est
+  copié dans `blob-atelier/vendor/` et dans chaque export animal, pour qu'une
+  mascotte n'appelle aucun serveur tiers.
 - Wobnimo : les 20 personnages et leurs 10 humeurs, via `<wobnimo-mascot>`.
 
-## Correctif Blob Atelier pour les formes sur mesure
+## Fork Blob Atelier
 
-Le fichier d'origine avait l'empreinte
-`3c41acab060d3f4e74ce740c303b6f2001745b4d1dc1b5938c7736a294026798`.
-MascotForge garde son en-tête et sa licence MIT. Le seul correctif factorise le
-calcul de `GEO` existant dans `buildGeo`, puis expose
-`AgentMascot.defineShape(name, points)`. Ce point d'entrée accepte exactement
-72 couples de nombres finis, refuse les noms et coordonnées hors contrat, et
-réutilise la même normalisation d'aire que les huit formes d'origine.
+`agent-mascot.js` est le build (`node src/build.js`) du fork Arivex, qui ajoute
+au code d'origine (empreinte d'origine
+`3c41acab060d3f4e74ce740c303b6f2001745b4d1dc1b5938c7736a294026798`) :
+
+- `AgentMascot.defineState(name, recipe)` : états sur mesure ;
+- `AgentMascot.defineAccessory(name, spec)` : accessoires en pièces simples,
+  sur les blobs et les animaux 3D ;
+- `AgentMascot.THREE_URL` en liste, résolue depuis l'URL du script ;
+- `AgentMascot.defineShape(name, points)` : contours sur mesure de 72 points ;
+- une mascotte figée (`still`) applique sa couleur tout de suite.
+
+Les 8 états et les 3 accessoires d'origine rendent comme avant (tests du fork).
 
 Mettre à jour un moteur : remplacer le fichier par une version publiée, mettre
 à jour ce tableau (version, empreinte) et relancer les tests.

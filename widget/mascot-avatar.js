@@ -22,9 +22,11 @@
  * Code mascots: "engine": "blob" (Blob Atelier) or "3d" (Wobnimo), with
  * "engine_src" (the engine script) and "engine_config" (its attributes), or
  * "engine_spec" (a custom Wobnimo character, made from an image), or
- * "engine_shape" (72 numeric points for a custom Blob Atelier shape). The
- * widget loads the engine once per page and relays play(); the engine draws
- * and animates the mascot, and follows the cursor on its own.
+ * "engine_shape" (72 numeric points for a custom Blob Atelier shape).
+ * "engine_states" and "engine_accessories" hold ordered Blob Atelier
+ * declarations. "engine_three_src" points to local three.js for animals.
+ * The widget registers declarations before creating the engine element, loads
+ * the engine once per page, and relays play().
  *
  * Cursor tracking (optional): "look": { "src", "fps", "map": [[dx, dy], ...] }
  * is a clip where only the head looks around. It is never played: at rest,
@@ -72,6 +74,29 @@ const STATE_ALIASES = {
 };
 
 const engineScripts = new Map(); // src -> Promise, one load per page
+const blobStateDeclarations = new Map();
+const blobAccessoryDeclarations = new Map();
+const blobShapeDeclarations = new Map();
+
+function registerBlobDefinition(registry, kind, name, definition, callback) {
+  const signature = JSON.stringify(definition);
+  if (registry.get(name) === signature) return;
+  if (registry.has(name)) throw new Error("agent-mascot: conflicting " + kind + ' "' + name + '".');
+  let warning = "";
+  const originalWarn = console.warn;
+  console.warn = (...args) => {
+    warning = args.map((value) => value && value.message ? value.message : String(value)).join(" ");
+    originalWarn.apply(console, args);
+  };
+  let accepted;
+  try {
+    accepted = callback();
+  } finally {
+    console.warn = originalWarn;
+  }
+  if (!accepted) throw new Error(warning || ("agent-mascot: " + kind + ' "' + name + '" refused.'));
+  registry.set(name, signature);
+}
 
 function loadEngine(src, spec) {
   if (customElements.get(spec.tag)) return Promise.resolve();
@@ -350,6 +375,7 @@ class MascotAvatar extends HTMLElement {
     } catch (err) {
       this._loadedManifestUrl = null; // allow a retry on next trigger
       console.warn("[mascot-avatar] manifest load failed:", err.message || err);
+      if (this._engine && !this._engine.el) this._engine = null;
       this._fallback.classList.add("visible");
     }
   }
@@ -362,7 +388,7 @@ class MascotAvatar extends HTMLElement {
     this._stopLook(false);
     if (this._look && this._look.video) this._look.video.remove();
     this._look = null;
-    if (this._engine) this._engine.el.remove();
+    if (this._engine && this._engine.el) this._engine.el.remove();
     this._engine = null;
     if (manifest && manifest.engine && manifest.engine !== "video") {
       this._buildEngine(manifest, base);
@@ -418,42 +444,54 @@ class MascotAvatar extends HTMLElement {
   _buildEngine(manifest, base) {
     const spec = ENGINES[manifest.engine];
     if (!spec || !manifest.engine_src) throw new Error("unknown engine: " + manifest.engine);
-    const el = document.createElement(spec.tag);
-    for (const [name, value] of Object.entries(manifest.engine_config || {})) {
-      el.setAttribute(name, String(value));
-    }
-    // Blob Atelier ignores prefers-reduced-motion: "still" freezes it. Wobnimo honours it.
-    if (this._reducesMotion && spec.tag === "agent-mascot") el.setAttribute("still", "");
     const followOff = this.getAttribute("follow-cursor") === "false";
-    if (followOff && spec.tag === "wobnimo-mascot") el.setAttribute("interactive", "false");
-    el.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
-    // A custom character (made from an image) is set as a property once the
-    // engine has defined the element: set earlier, it would shadow the engine's
-    // setter. Hidden until then, so the engine's default character never flashes.
-    const custom = manifest.engine === "3d" && manifest.engine_spec && typeof manifest.engine_spec === "object" ? manifest.engine_spec : null;
-    const blobShape = manifest.engine === "blob" && manifest.engine_shape && typeof manifest.engine_shape === "object" ? manifest.engine_shape : null;
-    if (custom) el.style.visibility = "hidden";
-    this._stage.appendChild(el);
     const ready = loadEngine(new URL(manifest.engine_src, base).href, spec).then(() => {
-      if (blobShape) {
-        const accepted = window.AgentMascot && typeof window.AgentMascot.defineShape === "function" &&
-          window.AgentMascot.defineShape(blobShape.name, blobShape.points);
-        if (accepted) {
-          el.removeAttribute("shape");
-          el.setAttribute("shape", blobShape.name);
+      if (manifest.engine === "blob") {
+        if (!window.AgentMascot) throw new Error("agent-mascot: engine API unavailable.");
+        if (manifest.engine_three_src) {
+          window.AgentMascot.THREE_URL = new URL(manifest.engine_three_src, base).href;
         }
-        else {
-          console.warn("[mascot-avatar] invalid custom blob shape ignored");
-          el.setAttribute("shape", "mochi");
+        for (const [name, definition] of Object.entries(manifest.engine_accessories || {})) {
+          registerBlobDefinition(
+            blobAccessoryDeclarations, "accessory", name, definition,
+            () => window.AgentMascot.defineAccessory(name, definition)
+          );
+        }
+        for (const [name, recipe] of Object.entries(manifest.engine_states || {})) {
+          registerBlobDefinition(
+            blobStateDeclarations, "state", name, recipe,
+            () => window.AgentMascot.defineState(name, recipe)
+          );
+        }
+        const blobShape = manifest.engine_shape && typeof manifest.engine_shape === "object" ? manifest.engine_shape : null;
+        if (blobShape) {
+          registerBlobDefinition(
+            blobShapeDeclarations, "shape", blobShape.name, blobShape.points,
+            () => window.AgentMascot.defineShape(blobShape.name, blobShape.points)
+          );
         }
       }
+      const el = document.createElement(spec.tag);
+      for (const [name, value] of Object.entries(manifest.engine_config || {})) {
+        el.setAttribute(name, String(value));
+      }
+      // Blob Atelier ignores prefers-reduced-motion: "still" freezes it. Wobnimo honours it.
+      if (this._reducesMotion && spec.tag === "agent-mascot") el.setAttribute("still", "");
+      if (followOff && spec.tag === "wobnimo-mascot") el.setAttribute("interactive", "false");
+      el.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
+      // Set a custom Wobnimo character after its class exists, or the property
+      // would shadow the engine setter. Keep it hidden until the property is set.
+      const custom = manifest.engine === "3d" && manifest.engine_spec && typeof manifest.engine_spec === "object" ? manifest.engine_spec : null;
+      if (custom) el.style.visibility = "hidden";
+      this._stage.appendChild(el);
       if (custom) {
         el.spec = custom;
         el.style.visibility = "";
       }
       if (followOff && typeof el.lookAt === "function") el.lookAt(0, 0);
+      this._engine.el = el;
     });
-    this._engine = { el, states: Object.keys(manifest.states || {}), ready };
+    this._engine = { el: null, states: Object.keys(manifest.states || {}), ready };
     this._canvas.classList.remove("on");
   }
 

@@ -411,15 +411,17 @@ Le studio propose deux styles sans IA ni coût, choisis en haut de la page :
 
 | Style | Moteur | Réglages | États |
 |---|---|---|---|
-| `blob` | Blob Atelier, Victoria Wu, MIT | forme (8), matière (6), couleur (11 ou `#rrggbb`), yeux, joues | idle, listening, thinking, talking, working, happy, done, error |
+| `blob` | Blob Atelier, Victoria Wu, MIT | forme (8), matière (6), couleur (11 ou `#rrggbb`), yeux, joues ; un agent dispose aussi de 8 animaux 3D en peluche, d'accessoires et d'états sur mesure | idle, listening, thinking, talking, working, happy, done, error, plus jusqu'à 32 états sur mesure |
 | `3d` | Wobnimo, Pourya Akhbari, MIT | personnage (20, dont Volt le robot à LED) | idle, listening, thinking, speaking, working, error, celebrating, surprised, sleeping, sad |
 
 Le manifest porte `"engine"`, `"engine_src"` (le moteur, livré dans
 `engines/` à côté) et `"engine_config"`. Le widget charge le moteur une fois
 par page et relaie `play()` ; les noms courants passent d'un moteur à l'autre
 (`talking` et `speaking`, `happy` et `celebrating`). Ces mascottes suivent le
-curseur d'elles-mêmes, et aucune n'appelle de serveur tiers : MascotForge ne
-propose pas les animaux 3D de Blob Atelier, qui chargent three.js depuis un CDN.
+curseur d'elles-mêmes, et aucune n'appelle de serveur tiers : l'export d'un
+animal embarque sa propre copie de three.js. Un agent dessine blobs et animaux
+3D, avec accessoires et états sur mesure, par `mascotforge blob guide` ou les
+outils MCP `mascotforge_blob_*`.
 Provenance, versions et empreintes des moteurs : `engines/README.md`.
 
 ### Personnage 3D depuis une image
@@ -516,7 +518,7 @@ utilise (voir `engines/README.md`).
 - `backend/exporter.py` : manifest v2, dossier importable, zip
 - `backend/engines.py` : mascottes en code (moteurs, réglages, manifest)
 - `backend/image3d.py` : image -> personnage 3D Wobnimo (modèle vision, vérificateur, corrections)
-- `engines/` : Blob Atelier et Wobnimo, non modifiés, avec leurs licences MIT
+- `engines/` : Blob Atelier (fork Arivex : états, accessoires et formes sur mesure) et Wobnimo non modifié, avec leurs licences MIT
 - `widget/mascot-avatar.js` : le composant web
 - `studio/` : l'interface de création
 - `skills/mascotforge/` : skill Agent Skills pour créer et intégrer une mascotte

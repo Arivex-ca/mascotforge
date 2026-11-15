@@ -4,8 +4,8 @@ Une mascotte en code ne passe ni par fal.ai ni par le pipeline : elle tient
 dans un manifest (moteur + reglages) que le widget <mascot-avatar> lit comme
 un manifest video. Gratuit, instantane, et la mascotte suit le curseur d'elle-meme.
 
-  blob : Blob Atelier (Victoria Wu, MIT), serie "blobs" seulement : ses animaux
-         3D chargent three.js depuis un CDN externe.
+  blob : Blob Atelier (Victoria Wu, MIT), blobs SVG et animaux en vraie 3D.
+         three.js est embarque uniquement dans les exports animaux.
   3d   : Wobnimo (Pourya Akhbari, MIT), 20 personnages, 10 humeurs.
 """
 from __future__ import annotations
@@ -26,12 +26,20 @@ ENGINES: dict[str, dict] = {
         "license": "blob-atelier/LICENSE",
         "states": ["idle", "listening", "thinking", "talking", "working", "happy", "done", "error"],
         "options": {
-            "shape": ["mochi", "bean", "pebble", "squircle", "pill", "drop", "kitty", "cloud"],
-            "material": ["soft", "matte", "jelly", "glass", "clay", "velvet"],
+            "shape": ["mochi", "bean", "pebble", "squircle", "pill", "drop", "kitty", "cloud",
+                      "bunny", "cat", "dog", "frog", "hamster", "bear", "panda", "chick"],
+            "material": ["soft", "matte", "jelly", "glass", "clay", "velvet",
+                         "fluffy", "knit", "felt"],
             "color": ["lilac", "milk", "peach", "butter", "matcha", "mint", "sky",
                       "bubblegum", "tangerine", "cocoa", "ink"],
             "eyes": ["capsule", "dot"],
             "cheeks": ["true", "false"],
+        },
+        "series": {
+            "blob": {"shapes": ["mochi", "bean", "pebble", "squircle", "pill", "drop", "kitty", "cloud"],
+                     "materials": ["soft", "matte", "jelly", "glass", "clay", "velvet"]},
+            "animal": {"shapes": ["bunny", "cat", "dog", "frog", "hamster", "bear", "panda", "chick"],
+                       "materials": ["fluffy", "knit", "felt"]},
         },
         "free_color": "color",  # accepte aussi un #rrggbb
     },
@@ -81,8 +89,10 @@ def validate_config(engine: str, config: dict) -> dict:
         return {"spec": str(config["spec"])}
     spec = get_engine(engine)
     clean: dict[str, str] = {}
+    shape = str(config.get("shape", spec["options"].get("shape", [""])[0])).strip()
+    defaults = {"material": "fluffy"} if engine == "blob" and shape in blob.ANIMALS else {}
     for key, allowed in spec["options"].items():
-        value = str(config.get(key, allowed[0])).strip()
+        value = str(config.get(key, defaults.get(key, allowed[0]))).strip()
         if key == spec["free_color"] and HEX_RE.match(value):
             clean[key] = value.lower()
         elif value in allowed:
@@ -90,6 +100,15 @@ def validate_config(engine: str, config: dict) -> dict:
         else:
             raise InvalidEngineError(
                 f"Valeur {value!r} refusee pour {key!r} (attendues : {', '.join(allowed)})."
+            )
+    if engine == "blob":
+        animal = clean["shape"] in blob.ANIMALS
+        allowed_materials = blob.FABRICS if animal else blob.MATERIALS
+        if clean["material"] not in allowed_materials:
+            series = "animal" if animal else "blob"
+            raise InvalidEngineError(
+                f"Matiere {clean['material']!r} incompatible avec la serie {series!r} "
+                f"(attendues : {', '.join(sorted(allowed_materials))})."
             )
     unknown = set(config) - set(spec["options"])
     if unknown:
@@ -116,11 +135,13 @@ def build_manifest(engine: str, config: dict, script_src: str, name: str) -> dic
         # Fiche sur mesure : le widget la passe a <wobnimo-mascot> (el.spec).
         manifest["engine_config"] = {}
         manifest["engine_spec"] = image3d.done_spec(clean["spec"])
+    if engine == "blob" and clean.get("shape") in blob.ANIMALS:
+        manifest["engine_three_src"] = _three_src(script_src)
     return manifest
 
 
 def build_blob_manifest(blob_spec: dict, script_src: str) -> dict:
-    """Manifest d'un blob sur mesure, sans passer par les huit formes nommees."""
+    """Manifest Blob Atelier v1 ou v2, avec declarations moteur ordonnees."""
     compiled = blob.compile_spec(blob_spec)
     manifest = {
         "version": 2,
@@ -128,19 +149,38 @@ def build_blob_manifest(blob_spec: dict, script_src: str) -> dict:
         "engine": "blob",
         "engine_src": script_src,
         "engine_config": compiled["config"],
-        "engine_shape": {"name": compiled["shape"], "points": compiled["points"]},
         "default_state": "idle",
         "alpha": "none",
-        "states": {state: {"loop": True} for state in ENGINES["blob"]["states"]},
+        "states": {
+            state: {"loop": True}
+            for state in [*ENGINES["blob"]["states"], *compiled["states"]]
+        },
         "credit": ENGINES["blob"]["credit"],
     }
+    if compiled["points"]:
+        manifest["engine_shape"] = {"name": compiled["shape"], "points": compiled["points"]}
+    if compiled["states"]:
+        manifest["engine_states"] = compiled["states"]
+    if compiled["accessories"]:
+        manifest["engine_accessories"] = compiled["accessories"]
+    if compiled["series"] == "animal":
+        manifest["engine_three_src"] = _three_src(script_src)
     return manifest
+
+
+def _three_src(script_src: str) -> str:
+    prefix = script_src.rsplit("/", 1)[0]
+    return f"{prefix}/vendor/three.module.min.js"
 
 
 def public_catalog() -> dict:
     """Ce que le studio affiche : styles, reglages, etats, credits."""
     return {
-        name: {key: spec[key] for key in ("label", "credit", "source", "states", "options", "free_color")}
+        name: {
+            key: spec[key]
+            for key in ("label", "credit", "source", "states", "options", "free_color", "series")
+            if key in spec
+        }
         for name, spec in ENGINES.items()
     }
 

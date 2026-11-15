@@ -5,6 +5,7 @@ data/
 exports/
 .env
 .pytest_cache/
+.pytest-tmp/
 # Assets Arivex de demo (hors depot open source) et config locale de l'agent
 demo-robot/
 .claude/

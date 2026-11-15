@@ -123,11 +123,24 @@ python -m mascotforge code --engine blob --set shape=cloud --out ./mascot
 
 MCP: `mascotforge_code(engine="blob", config={"shape":"cloud"}, out="./mascot")`.
 
-### Free blob designed by the agent
+### Free Blob Atelier mascot designed by the agent
 
-Use this workflow for a silhouette that the eight built-in shapes do not cover,
-such as horns, ears, a star, or a crooked bean. The spec contains JSON data
-only. Run the check and preview again after every correction.
+Use this workflow for full Blob Atelier customization. A version 2 spec can
+select a named blob, define a custom blob contour, or select a real 3D animal
+with a fluffy, knit, or felt fabric. It can also declare reusable accessories
+from geometric parts and up to 32 custom states that inherit from built-in or
+previously declared states. The same declared accessories work on blobs and 3D
+animals. The spec contains JSON data only.
+
+Read the guide before writing the spec. It includes a complete 3D bunny with
+declared headphones and `sleeping` and `celebrating` states, plus a custom blob
+with a declared crown and a `sleeping` state. Use `series: "blob"` with either
+`shape` or `contour`. Use `series: "animal"` with `animal` and `fabric`.
+
+Run the check and preview again after every correction. The preview renders all
+built-in states first, followed by custom states, with every selected
+accessory. Animals must render through the local three.js module in real 3D.
+An engine refusal is a failed preview and must be corrected before export.
 
 ```bash
 python -m mascotforge blob guide --out ./guide-blob.md
@@ -138,6 +151,13 @@ python -m mascotforge blob export ./blob.json --out ./mascot
 
 MCP: Call `mascotforge_blob_guide`, `mascotforge_blob_check`,
 `mascotforge_blob_preview`, and `mascotforge_blob_export` in that order.
+
+The exported directory works offline when served over HTTP. Animal exports
+include local three.js and its license; blob exports omit that vendor module.
+The manifest carries custom shapes, states, and accessories. The widget
+registers them before creating the mascot, so `mascot.play("sleeping")` works
+for a custom state listed in the manifest. Do not open an animal export through
+`file://`, because browsers block local ES module imports there.
 
 ### Free 3D character from the gallery
 

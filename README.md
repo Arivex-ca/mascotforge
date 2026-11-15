@@ -411,16 +411,17 @@ The studio offers two styles without AI or cost at the top of the page:
 
 | Style | Engine | Settings | States |
 |---|---|---|---|
-| `blob` | Blob Atelier, Victoria Wu, MIT | shape (8), material (6), color (11 or `#rrggbb`), eyes, cheeks | idle, listening, thinking, talking, working, happy, done, error |
+| `blob` | Blob Atelier, Victoria Wu, MIT | shape (8), material (6), color (11 or `#rrggbb`), eyes, cheeks; agents also get 8 plush 3D animals, custom accessories and custom states | idle, listening, thinking, talking, working, happy, done, error, plus up to 32 custom states |
 | `3d` | Wobnimo, Pourya Akhbari, MIT | character (20, including the LED robot Volt) | idle, listening, thinking, speaking, working, error, celebrating, surprised, sleeping, sad |
 
 The manifest contains `"engine"`, `"engine_src"` for the engine shipped next
 to it in `engines/`, and `"engine_config"`. The widget loads the engine once
 per page and relays `play()`. Common names cross engines, including `talking`
 and `speaking`, or `happy` and `celebrating`. These mascots follow the cursor
-themselves and call no third-party server. MascotForge excludes Blob Atelier's
-3D animals because they load three.js from an external CDN. See
-`engines/README.md` for engine provenance, versions, and hashes.
+themselves and call no third-party server: an animal export ships its own copy
+of three.js. Agents design blobs and 3D animals with custom accessories and
+states through `mascotforge blob guide` or the MCP `mascotforge_blob_*` tools.
+See `engines/README.md` for engine provenance, versions, and hashes.
 
 ### 3D character from an image
 
@@ -513,7 +514,7 @@ stay beside them and ship in every export that uses them. See
 - `backend/exporter.py`: V2 manifest, importable folder, zip
 - `backend/engines.py`: code mascots, engines, settings, manifests
 - `backend/image3d.py`: image to Wobnimo 3D character with a vision model, checker, and corrections
-- `engines/`: unmodified Blob Atelier and Wobnimo code with their MIT licenses
+- `engines/`: Blob Atelier (Arivex fork with custom states, accessories and shapes) and unmodified Wobnimo, with their MIT licenses
 - `widget/mascot-avatar.js`: the web component
 - `studio/`: creation interface
 - `skills/mascotforge/`: Agent Skills skill for creating and integrating a mascot
