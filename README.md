@@ -3,6 +3,7 @@
 </p>
 
 <h1 align="center">MascotForge</h1>
+[![M8ven Score](https://m8ven.ai/badge/mcp/arivex-ca/mascotforge)](https://m8ven.ai/mcp/arivex-ca/mascotforge?s=readme)
 
 <p align="center"><b>Your users can't tell if your agent is thinking or stuck. Give it a face.</b><br>
 Design an animated status mascot, watch it follow your agent, and copy the web component. Blob and 3D styles run free in the browser.</p>
