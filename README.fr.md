@@ -48,13 +48,11 @@ regarde vers la souris.
 réglés dans le studio, chacun dans un état différent. Gratuits, animés en
 direct dans le navigateur, ils suivent le curseur.
 
-![Quatre blobs et quatre personnages 3D dans le widget MascotForge](docs/media/mascottes-en-code.png)
-
 **Dessiné par un agent** : Codex a conçu ce renard seul, par MCP et sans clé
 d'API. Après le premier aperçu, il a jugé que la forme ressemblait à un chat,
 puis l'a corrigée.
 
-![Un blob renard conçu par Codex par MCP, dans ses huit états](docs/media/renard-agent.png)
+![Mascottes en code et renard conçu par un agent réunis dans un collage](docs/media/collage-code-mascots.webp)
 
 **Image de base générée par l'agent** : pas d'image de départ ni de clé fal ?
 Claude Code a généré lui-même ces quatre peluches avec le modèle gratuit
@@ -62,32 +60,18 @@ Z-Image Turbo, via son connecteur Hugging Face, en suivant le skill
 MascotForge. L'image retenue part ensuite vers la vidéo, l'image vers 3D ou
 Wobnimo.
 
-![Quatre mascottes peluches générées par Claude Code : renard, nuage, robot et pêche](docs/media/peluches-agent.png)
-
 **Personnage 3D depuis une image** : à gauche l'image d'origine, puis deux
 personnages Wobnimo écrits par un modèle d'après cette image (Visor, puis
 Glimmer avec la comparaison visuelle). C'est une interprétation dans le style
 Wobnimo, pas une copie : environ 0,13 à 0,40 $ par personnage.
 
-![L'image du robot, puis ses deux interprétations en 3D](docs/media/image-vers-3d.png)
-
 Le même personnage dans ses 10 humeurs, sous 4 angles :
 
-![Le personnage 3D Glimmer : angles, gros plan et humeurs](docs/media/personnage-3d-humeurs.png)
+![Personnages générés par un agent, résultats image vers 3D et planche d'humeurs de Glimmer réunis dans un collage](docs/media/collage-ai-to-3d.webp)
 
 ### Le studio
 
-![Accueil du studio MascotForge](docs/media/studio-accueil.png)
-
-![Choix du parcours dans le studio](docs/media/studio-choix.png)
-
-![Intégration finale d'une mascotte](docs/media/studio-final.png)
-
-![Réglages des clés dans le studio](docs/media/studio-reglages.png)
-
-![Panneau Pour les agents](docs/media/studio-agents.png)
-
-![Configuration MCP pour Codex CLI et l'application Codex](docs/media/studio-agents-codex.png)
+![Parcours du studio MascotForge, de l'accueil au choix, à l'intégration, aux réglages et à la configuration des agents](docs/media/collage-studio.webp)
 
 Pipeline :
 
@@ -201,9 +185,7 @@ trop fins, trop petits ou trop grands et les valeurs hors bornes. `blob
 preview` montre les huit états avant l'export autonome. Le guide contient un
 blob à deux cornes, une étoile et un haricot tordu.
 
-![Un blob à deux cornes dans ses huit états](docs/media/blob-sur-mesure.png)
-
-![Un blob en étoile dans ses huit états](docs/media/blob-etoile.png)
+![Deux mascottes blob personnalisées dans leurs huit états](docs/media/collage-custom-blobs.webp)
 
 ```bash
 python -m mascotforge blob guide --out ./guide-blob.md
