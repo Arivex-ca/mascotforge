@@ -38,88 +38,94 @@
         <p class="hero-lede">Build an animated status indicator, watch it follow your agent, then copy one web component. No account. No API key for code mascots.</p>
       </div>
 
-      <div class="forge-stage" aria-label="Live mascot preview">
-        <div class="stage-grid" aria-hidden="true"></div>
-        <div class="stage-signal stage-signal-left" aria-hidden="true"><span></span> LIVE</div>
-        <div class="stage-signal stage-signal-right" aria-hidden="true">STATE / <strong id="stageState">IDLE</strong></div>
-        <agent-mascot id="workshopMascot" shape="mochi" material="jelly" color="peach" eyes="dot" cheeks="true" state="idle" aria-label="Animated MascotForge preview"></agent-mascot>
-        <div class="state-orbit" aria-hidden="true">
-          <span>LISTEN</span><span>THINK</span><span>WORK</span><span>TALK</span><span>DONE</span>
-        </div>
-        <div class="stage-actions">
-          <button class="button button-primary" id="simulateButton" type="button" aria-pressed="false">
-            <span class="button-icon" aria-hidden="true">▶</span>
-            <span class="button-label">Simulate agent</span>
-          </button>
-          <button class="button button-quiet" id="copyLinkButton" type="button">
-            <span aria-hidden="true">↗</span>
-            <span class="button-label">Copy link</span>
-          </button>
-        </div>
-        <p class="stage-caption" id="stageCaption">Idle breathing. Choose a state or run the agent loop.</p>
-      </div>
-
-      <div class="fallback-notice" id="fallbackNotice" role="status" hidden>
-        WebGL2 is unavailable. Animal 3D previews use Blob Atelier's SVG fallback, so every control still works.
-      </div>
-
-      <div class="control-deck" aria-label="Mascot controls">
-        <div class="deck-heading">
-          <div>
-            <p class="section-kicker">01 / BUILD</p>
-            <h2>Shape the signal</h2>
+      <div class="workshop-layout">
+        <div class="workshop-preview">
+          <div class="forge-stage" aria-label="Live mascot preview">
+            <div class="stage-grid" aria-hidden="true"></div>
+            <div class="stage-signal stage-signal-left" aria-hidden="true"><span></span> LIVE</div>
+            <div class="stage-signal stage-signal-right" aria-hidden="true">STATE / <strong id="stageState">IDLE</strong></div>
+            <agent-mascot id="workshopMascot" shape="mochi" material="jelly" color="peach" eyes="dot" cheeks="true" state="idle" aria-label="Animated MascotForge preview"></agent-mascot>
+            <div class="state-orbit" aria-hidden="true">
+              <span>LISTEN</span><span>THINK</span><span>WORK</span><span>TALK</span><span>DONE</span>
+            </div>
+            <div class="stage-actions">
+              <button class="button button-primary" id="simulateButton" type="button" aria-pressed="false">
+                <span class="button-icon" aria-hidden="true">▶</span>
+                <span class="button-label">Simulate agent</span>
+              </button>
+              <button class="button button-quiet" id="copyLinkButton" type="button">
+                <span aria-hidden="true">↗</span>
+                <span class="button-label">Copy link</span>
+              </button>
+            </div>
+            <p class="stage-caption" id="stageCaption">Idle breathing. Choose a state or run the agent loop.</p>
           </div>
-          <p>Every change is saved in the URL. Send the link and the same mascot opens on the other side.</p>
+
+          <div class="fallback-notice" id="fallbackNotice" role="status" hidden>
+            WebGL2 is unavailable. Animal 3D previews use Blob Atelier's SVG fallback, so every control still works.
+          </div>
         </div>
 
-        <div class="control-grid">
-          <fieldset class="control-panel control-panel-wide">
-            <legend>Style</legend>
-            <div class="segmented" id="seriesControls">
-              <button type="button" data-series="blob" aria-pressed="true"><span class="control-glyph">●</span> Blob</button>
-              <button type="button" data-series="animal" aria-pressed="false"><span class="control-glyph">◆</span> Animal 3D</button>
+        <div class="workshop-builder">
+          <div class="control-deck" aria-label="Mascot controls">
+            <div class="deck-heading">
+              <div>
+                <p class="section-kicker">01 / BUILD</p>
+                <h2>Shape the signal</h2>
+              </div>
+              <p>Every change is saved in the URL. Send the link and the same mascot opens on the other side.</p>
             </div>
-          </fieldset>
 
-          <fieldset class="control-panel control-panel-wide">
-            <legend id="shapeLegend">Shape</legend>
-            <div class="option-grid" id="shapeControls"></div>
-          </fieldset>
+            <div class="control-grid">
+              <fieldset class="control-panel control-panel-wide">
+                <legend>Style</legend>
+                <div class="segmented" id="seriesControls">
+                  <button type="button" data-series="blob" aria-pressed="true"><span class="control-glyph">●</span> Blob</button>
+                  <button type="button" data-series="animal" aria-pressed="false"><span class="control-glyph">◆</span> Animal 3D</button>
+                </div>
+              </fieldset>
 
-          <fieldset class="control-panel">
-            <legend id="materialLegend">Finish</legend>
-            <div class="button-stack" id="materialControls"></div>
-          </fieldset>
+              <fieldset class="control-panel control-panel-wide">
+                <legend id="shapeLegend">Shape</legend>
+                <div class="option-grid" id="shapeControls"></div>
+              </fieldset>
 
-          <fieldset class="control-panel">
-            <legend>Face</legend>
-            <div class="button-stack" id="eyeControls">
-              <button type="button" data-eyes="dot" aria-pressed="true">Dot eyes</button>
-              <button type="button" data-eyes="capsule" aria-pressed="false">Capsule eyes</button>
-              <button type="button" id="cheeksButton" aria-pressed="true">Rosy cheeks</button>
+              <fieldset class="control-panel">
+                <legend id="materialLegend">Finish</legend>
+                <div class="button-stack" id="materialControls"></div>
+              </fieldset>
+
+              <fieldset class="control-panel">
+                <legend>Face</legend>
+                <div class="button-stack" id="eyeControls">
+                  <button type="button" data-eyes="dot" aria-pressed="true">Dot eyes</button>
+                  <button type="button" data-eyes="capsule" aria-pressed="false">Capsule eyes</button>
+                  <button type="button" id="cheeksButton" aria-pressed="true">Rosy cheeks</button>
+                </div>
+              </fieldset>
+
+              <fieldset class="control-panel control-panel-color">
+                <legend>Color</legend>
+                <div class="palette" id="colorControls"></div>
+                <label class="hex-picker" for="customColor">
+                  <span>Custom hex</span>
+                  <span class="hex-value" id="hexValue">#FFB49C</span>
+                  <input id="customColor" type="color" value="#ffb49c" aria-label="Choose a custom mascot color">
+                </label>
+              </fieldset>
+
+              <fieldset class="control-panel control-panel-accessories">
+                <legend>Accessories <span>pick several</span></legend>
+                <div class="accessory-grid" id="accessoryControls"></div>
+                <p class="control-help" id="accessoryHelp">Beret, glasses, and sunglasses render on Animal 3D. Custom accessories work on both styles.</p>
+              </fieldset>
+
+              <fieldset class="control-panel control-panel-wide">
+                <legend>Agent state</legend>
+                <div class="state-grid" id="stateControls"></div>
+              </fieldset>
             </div>
-          </fieldset>
-
-          <fieldset class="control-panel control-panel-color">
-            <legend>Color</legend>
-            <div class="palette" id="colorControls"></div>
-            <label class="hex-picker" for="customColor">
-              <span>Custom hex</span>
-              <span class="hex-value" id="hexValue">#FFB49C</span>
-              <input id="customColor" type="color" value="#ffb49c" aria-label="Choose a custom mascot color">
-            </label>
-          </fieldset>
-
-          <fieldset class="control-panel control-panel-accessories">
-            <legend>Accessories <span>pick several</span></legend>
-            <div class="accessory-grid" id="accessoryControls"></div>
-            <p class="control-help" id="accessoryHelp">Beret, glasses, and sunglasses render on Animal 3D. Custom accessories work on both styles.</p>
-          </fieldset>
-
-          <fieldset class="control-panel control-panel-wide">
-            <legend>Agent state</legend>
-            <div class="state-grid" id="stateControls"></div>
-          </fieldset>
+          </div>
         </div>
       </div>
 
