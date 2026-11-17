@@ -142,38 +142,80 @@
     <section class="gallery section-shell" id="gallery" aria-labelledby="gallery-title">
       <div class="section-heading">
         <div>
-          <p class="section-kicker">03 / PROOF</p>
-          <h2 id="gallery-title">Four paths to a face</h2>
+          <p class="section-kicker">03 / LIVE DEMO</p>
+          <h2 id="gallery-title">One state. Four live faces.</h2>
         </div>
-        <p>Use free browser code, bring a custom spec, or spend about one dollar to turn a source image into four AI video states.</p>
+        <p>Choose what the agent is doing. Every code mascot reacts through the same state call, from a free blob to a character built from an image.</p>
       </div>
 
-      <div class="gallery-grid">
-        <article class="gallery-card gallery-orbi" data-gallery="orbi">
-          <div class="gallery-visual">
-            <span class="gallery-badge">WORKING</span>
-            <div class="orbi-mount" id="orbiMount">
-              <p class="gallery-runtime-message" id="orbiStatus" role="status" hidden>WebGL2 is unavailable, so Orbi's Wobnimo preview cannot render. The workshop Animal 3D style uses its SVG fallback.</p>
-            </div>
+      <div class="demo-console">
+        <div class="demo-toolbar">
+          <div class="demo-status">
+            <span class="live-dot" aria-hidden="true"></span>
+            <span>SYNCED STATE</span>
+            <strong id="galleryStateLabel" aria-live="polite">THINKING</strong>
           </div>
-          <div class="gallery-copy"><h3>Orbi</h3><p>3D from one image (about $0.15 to $0.60 for the vision step), then free to run. Its JSON spec adds the keyboard and working pose.</p></div>
-        </article>
+          <div class="demo-state-strip" id="galleryStateControls" role="group" aria-label="Preview one state across every code mascot">
+            <button type="button" data-gallery-state="idle" aria-pressed="false">Idle</button>
+            <button type="button" data-gallery-state="listening" aria-pressed="false">Listen</button>
+            <button type="button" data-gallery-state="thinking" aria-pressed="true">Think</button>
+            <button type="button" data-gallery-state="working" aria-pressed="false">Work</button>
+            <button type="button" data-gallery-state="talking" aria-pressed="false">Talk</button>
+            <button type="button" data-gallery-state="done" aria-pressed="false">Done</button>
+            <button type="button" data-gallery-state="error" aria-pressed="false">Error</button>
+          </div>
+        </div>
 
-        <article class="gallery-card gallery-fox" data-gallery="fox">
-          <div class="gallery-visual"><span class="gallery-badge">AI VIDEO</span><img src="./media/renard-video-etats.gif" alt="Plush fox cycling through idle, thinking, talking, and error states"></div>
-          <div class="gallery-copy"><h3>Fox</h3><p>AI video with your fal.ai key. About $1 for 4 states.</p></div>
-        </article>
+        <div class="gallery-grid">
+          <article class="gallery-card gallery-mochi" data-gallery="mochi">
+            <div class="gallery-visual">
+              <span class="gallery-badge" data-live-state>THINKING</span>
+              <agent-mascot id="mochiDemoMascot" shape="mochi" material="jelly" color="peach" eyes="dot" cheeks="true" state="thinking" aria-label="Mochi blob reacting to the selected agent state"></agent-mascot>
+            </div>
+            <div class="gallery-copy"><h3>Mochi</h3><p>Free browser blob</p></div>
+          </article>
 
-        <article class="gallery-card gallery-bunny" data-gallery="bunny">
-          <div class="gallery-visual"><span class="gallery-badge">FREE CODE</span><agent-mascot id="bunnyMascot" shape="bunny" material="knit" color="lilac" state="listening" aria-label="Knitted bunny wearing headphones"></agent-mascot></div>
-          <div class="gallery-copy"><h3>Signal Bunny</h3><p>Free in code. Blob Atelier renders knit fabric and custom headphones in the browser.</p></div>
-        </article>
+          <article class="gallery-card gallery-bunny" data-gallery="bunny">
+            <div class="gallery-visual">
+              <span class="gallery-badge" data-live-state>THINKING</span>
+              <agent-mascot id="bunnyMascot" shape="bunny" material="knit" color="lilac" state="thinking" aria-label="Knitted bunny reacting to the selected agent state"></agent-mascot>
+            </div>
+            <div class="gallery-copy"><h3>Signal Bunny</h3><p>Free fabric character</p></div>
+          </article>
 
-        <article class="gallery-card gallery-patch" data-gallery="patch">
-          <div class="gallery-visual"><span class="gallery-badge">CUSTOM KIT</span><agent-mascot id="patchMascot" shape="cat" material="fluffy" color="#18243a" eyes="dot" cheeks="true" state="idle" aria-label="Patch the cat wearing a headlamp"></agent-mascot></div>
-          <div class="gallery-copy"><h3>Patch</h3><p>Free in code. Its manifest declares a headlamp and agent-specific states.</p></div>
-        </article>
+          <article class="gallery-card gallery-patch" data-gallery="patch">
+            <div class="gallery-visual">
+              <span class="gallery-badge" data-live-state>THINKING</span>
+              <agent-mascot id="patchMascot" shape="cat" material="fluffy" color="#18243a" eyes="dot" cheeks="true" state="thinking" aria-label="Patch the cat reacting to the selected agent state"></agent-mascot>
+            </div>
+            <div class="gallery-copy"><h3>Patch</h3><p>Custom manifest and headlamp</p></div>
+          </article>
+
+          <article class="gallery-card gallery-orbi" data-gallery="orbi">
+            <div class="gallery-visual">
+              <span class="gallery-badge" data-live-state>THINKING</span>
+              <div class="orbi-mount" id="orbiMount">
+                <p class="gallery-runtime-message" id="orbiStatus" role="status" hidden>WebGL2 is unavailable, so Orbi's Wobnimo preview cannot render. The other three live previews still work.</p>
+              </div>
+            </div>
+            <div class="gallery-copy"><h3>Orbi</h3><p>3D character built from one image</p></div>
+          </article>
+        </div>
+
+        <p class="demo-callout"><code>play("thinking")</code><span>One call updates every live mascot above.</span></p>
       </div>
+
+      <article class="video-proof">
+        <div class="video-proof-media">
+          <span class="gallery-badge">AI VIDEO / 4 STATES</span>
+          <img src="./media/renard-video-etats.gif" alt="Plush fox cycling through idle, thinking, talking, and error states">
+        </div>
+        <div class="video-proof-copy">
+          <p class="section-kicker">RENDERED PATH</p>
+          <h3>Need footage instead of code?</h3>
+          <p>Start from one image and render seamless clips for idle, thinking, talking, and error. This fox cost about $1 for all four states.</p>
+        </div>
+      </article>
     </section>
 
     <section class="agent-design section-shell" id="agent-design" aria-labelledby="agent-title">

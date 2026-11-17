@@ -33,6 +33,7 @@
 
   const BUILTIN_STATES = ["idle", "listening", "thinking", "talking", "working", "happy", "done", "error"];
   const CUSTOM_STATES = ["sleeping", "waiting-for-approval"];
+  const GALLERY_STATES = ["idle", "listening", "thinking", "working", "talking", "done", "error"];
   const STATE_CAPTIONS = {
     idle: "Idle breathing. Choose a state or run the agent loop.",
     listening: "Listening. Soft rings pull inward while the agent takes input.",
@@ -125,6 +126,8 @@
   let simulationTimer = null;
   let simulationIndex = 0;
   let announceTimer = null;
+  let galleryOrbi = null;
+  let galleryState = "thinking";
 
   function titleCase(value) {
     return value.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
@@ -293,6 +296,38 @@
     renderAccessoryControls();
     renderStateControls();
     syncControls();
+  }
+
+  function applyGalleryState(name, shouldAnnounce) {
+    if (!GALLERY_STATES.includes(name)) return;
+    galleryState = name;
+
+    ["#mochiDemoMascot", "#bunnyMascot", "#patchMascot"].forEach((selector) => {
+      const mascot = $(selector);
+      if (mascot) mascot.setState(name);
+    });
+
+    if (galleryOrbi) {
+      const transition = galleryOrbi.play(name, { immediate: true });
+      if (transition && typeof transition.catch === "function") {
+        transition.catch((error) => {
+          announce("Orbi could not switch state: " + (error.message || error), "error");
+        });
+      }
+    }
+
+    $("#galleryStateLabel").textContent = name.toUpperCase();
+    $$('[data-live-state]').forEach((badge) => {
+      badge.textContent = name.toUpperCase();
+    });
+    $$('[data-gallery-state]').forEach((button) => {
+      button.setAttribute("aria-pressed", button.dataset.galleryState === name ? "true" : "false");
+    });
+    $$(".demo-console .gallery-card").forEach((card) => {
+      card.classList.remove("is-reacting");
+      requestAnimationFrame(() => card.classList.add("is-reacting"));
+    });
+    if (shouldAnnounce !== false) announce("Showing " + titleCase(name) + " across every live mascot.");
   }
 
   function syncControls() {
@@ -527,6 +562,9 @@
       writeHash();
       copyText(location.href, $("#copyLinkButton"), "Shareable design link copied.", "__lastCopiedLink");
     });
+    $$('[data-gallery-state]', $("#galleryStateControls")).forEach((button) => {
+      button.addEventListener("click", () => applyGalleryState(button.dataset.galleryState, true));
+    });
   }
 
   function showFallbackIfNeeded() {
@@ -534,13 +572,16 @@
   }
 
   async function configureGallery(patchManifest) {
+    const mochi = $("#mochiDemoMascot");
+    mochi.setConfig({ state: galleryState });
+
     const bunny = $("#bunnyMascot");
-    bunny.setConfig({ accessory: "headphones", state: "listening" });
+    bunny.setConfig({ accessory: "headphones", state: galleryState });
 
     const patch = $("#patchMascot");
     const config = Object.assign({}, patchManifest.engine_config, {
       accessory: "night-headlamp",
-      state: "waiting-for-approval"
+      state: galleryState
     });
     patch.setConfig(config);
 
@@ -548,9 +589,10 @@
     if (!AgentMascot.supports3D()) {
       $("#orbiStatus").hidden = false;
       $("[data-gallery=orbi]").dataset.ready = "fallback";
+      $("[data-gallery=mochi]").dataset.ready = "true";
       $("[data-gallery=bunny]").dataset.ready = "true";
       $("[data-gallery=patch]").dataset.ready = "true";
-      $("[data-gallery=fox]").dataset.ready = "true";
+      applyGalleryState(galleryState, false);
       return;
     }
     const orbi = document.createElement("mascot-avatar");
@@ -561,14 +603,16 @@
     orbiMount.prepend(orbi);
     await customElements.whenDefined("mascot-avatar");
     await orbi.ready();
-    await orbi.play("working", { immediate: true });
+    galleryOrbi = orbi;
+    await orbi.play(galleryState, { immediate: true });
     if (!orbi.shadowRoot || !orbi.shadowRoot.querySelector("wobnimo-mascot")) {
       throw new Error("Orbi's Wobnimo renderer did not start.");
     }
     $("[data-gallery=orbi]").dataset.ready = "true";
+    $("[data-gallery=mochi]").dataset.ready = "true";
     $("[data-gallery=bunny]").dataset.ready = "true";
     $("[data-gallery=patch]").dataset.ready = "true";
-    $("[data-gallery=fox]").dataset.ready = "true";
+    applyGalleryState(galleryState, false);
   }
 
   async function bootstrap() {
@@ -591,6 +635,8 @@
       stopShowcase,
       stopSimulation: () => stopSimulation(false),
       applyState: (name) => applyAgentState(name, true),
+      getGalleryState: () => galleryState,
+      applyGalleryState: (name) => applyGalleryState(name, false),
       ready: true
     };
     document.documentElement.dataset.ready = "true";
