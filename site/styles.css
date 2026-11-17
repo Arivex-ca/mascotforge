@@ -252,6 +252,25 @@ h1 span {
   font-size: clamp(1rem, 2vw, 1.2rem);
 }
 
+.workshop-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.9fr) minmax(0, 1.1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+.workshop-preview {
+  position: sticky;
+  z-index: 10;
+  top: 18px;
+  min-width: 0;
+  align-self: start;
+}
+
+.workshop-builder {
+  min-width: 0;
+}
+
 .forge-stage {
   position: relative;
   min-height: 560px;
@@ -345,8 +364,9 @@ h1 span {
   top: 35px;
   left: 50%;
   display: block;
-  width: min(470px, 52vw);
-  height: min(470px, 52vw);
+  width: min(470px, 88%);
+  height: auto;
+  aspect-ratio: 1;
   transform: translateX(-50%);
   filter: drop-shadow(0 34px 26px rgba(0, 0, 0, 0.32));
 }
@@ -465,7 +485,7 @@ h1 span {
 }
 
 .control-deck {
-  margin-top: 24px;
+  margin-top: 0;
   padding: 34px;
   border: 1px solid var(--line);
   border-radius: 30px;
@@ -508,6 +528,18 @@ h1 span {
   display: grid;
   grid-template-columns: 1fr 1fr 1.2fr;
   gap: 14px;
+}
+
+.workshop-builder .deck-heading {
+  display: block;
+}
+
+.workshop-builder .deck-heading > p {
+  margin-top: 14px;
+}
+
+.workshop-builder .control-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .control-panel {
@@ -1174,6 +1206,21 @@ footer > a {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
 }
 
+@media (max-width: 1020px) {
+  .workshop-layout { grid-template-columns: 1fr; gap: 16px; }
+  .workshop-preview { top: 8px; }
+  .workshop-preview .forge-stage { height: 340px; min-height: 0; }
+  .workshop-preview .forge-stage::before { width: 300px; height: 300px; top: 16px; left: calc(50% - 150px); }
+  .workshop-preview .forge-stage::after { width: 230px; height: 230px; top: 50px; left: calc(50% - 115px); }
+  .workshop-preview #workshopMascot { top: 12px; width: 290px; height: 290px; }
+  .workshop-preview .state-orbit span:nth-child(1) { top: 30%; left: 5%; }
+  .workshop-preview .state-orbit span:nth-child(2) { top: 17%; right: 6%; }
+  .workshop-preview .state-orbit span:nth-child(3) { top: 58%; left: 5%; }
+  .workshop-preview .state-orbit span:nth-child(4) { top: 50%; right: 5%; }
+  .workshop-preview .state-orbit span:nth-child(5) { display: none; }
+  .workshop-preview .stage-actions { bottom: 42px; }
+}
+
 @media (max-width: 900px) {
   .control-grid { grid-template-columns: 1fr 1fr; }
   .control-panel-wide, .control-panel-accessories { grid-column: span 2; }
@@ -1206,19 +1253,17 @@ footer > a {
   h1 { font-size: clamp(2.2rem, 10vw, 3.4rem); letter-spacing: -0.05em; }
   h1 span { white-space: normal; }
   .hero-lede { margin-top: 20px; }
-  .forge-stage { min-height: 465px; border-radius: 25px; }
-  .forge-stage::before { width: 310px; height: 310px; top: 52px; left: calc(50% - 155px); }
-  .forge-stage::after { width: 245px; height: 245px; top: 84px; left: calc(50% - 122.5px); }
-  #workshopMascot { top: 48px; width: min(340px, 92vw); height: min(340px, 92vw); }
+  .workshop-preview { top: 6px; }
+  .workshop-preview .forge-stage { height: 260px; min-height: 260px; border-radius: 25px; }
+  .workshop-preview .forge-stage::before { width: 210px; height: 210px; top: 15px; left: calc(50% - 105px); }
+  .workshop-preview .forge-stage::after { width: 160px; height: 160px; top: 40px; left: calc(50% - 80px); }
+  .workshop-preview #workshopMascot { top: 24px; width: 165px; height: 165px; }
   .stage-signal { top: 18px; font-size: 0.55rem; }
   .stage-signal-left { left: 18px; }
   .stage-signal-right { right: 18px; }
-  .state-orbit span:nth-child(1) { top: 31%; left: 4%; }
-  .state-orbit span:nth-child(2) { top: 17%; right: 4%; }
-  .state-orbit span:nth-child(3) { top: 58%; left: 4%; }
-  .state-orbit span:nth-child(4) { top: 51%; right: 3%; }
-  .state-orbit span:nth-child(5) { display: none; }
-  .stage-actions { bottom: 49px; padding: 0 12px; }
+  .workshop-preview .state-orbit { display: none; }
+  .workshop-preview .stage-actions { bottom: 14px; padding: 0 12px; }
+  .workshop-preview .stage-caption { display: none; }
   .button { min-height: 44px; padding: 10px 14px; font-size: 0.78rem; }
   .control-deck { padding: 20px 14px; border-radius: 23px; }
   .deck-heading, .section-heading { display: block; }

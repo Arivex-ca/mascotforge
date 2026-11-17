@@ -121,14 +121,69 @@ def test_state_button_updates_every_live_mascot(site_page):
     assert page_errors == []
 
 
+def test_workshop_preview_stays_visible_beside_desktop_controls(site_page):
+    page, console_errors, page_errors, _ = site_page
+    page.set_viewport_size({"width": 1280, "height": 900})
+    page.evaluate("() => document.documentElement.style.scrollBehavior = 'auto'")
+
+    layout = page.locator(".workshop-layout")
+    preview = page.locator(".workshop-preview")
+    controls = page.locator(".workshop-builder")
+    layout_box = layout.bounding_box()
+    preview_box = preview.bounding_box()
+    controls_box = controls.bounding_box()
+
+    assert layout_box is not None
+    assert preview_box is not None
+    assert controls_box is not None
+    assert preview_box["x"] < controls_box["x"]
+    assert abs(preview_box["y"] - controls_box["y"]) <= 2
+
+    page.evaluate(
+        """() => {
+          const layout = document.querySelector(".workshop-layout");
+          const layoutTop = layout.getBoundingClientRect().top + window.scrollY;
+          window.scrollTo(0, layoutTop + 260);
+        }"""
+    )
+    page.wait_for_timeout(100)
+    sticky_top = preview.bounding_box()["y"]
+    controls_top = controls.bounding_box()["y"]
+
+    page.evaluate("() => window.scrollBy(0, 420)")
+    page.wait_for_timeout(100)
+
+    assert abs(preview.bounding_box()["y"] - sticky_top) <= 2
+    assert controls.bounding_box()["y"] < controls_top - 400
+    assert console_errors == []
+    assert page_errors == []
+
+
 def test_live_demo_fits_mobile_without_horizontal_scroll(site_page):
     page, console_errors, page_errors, _ = site_page
 
     page.set_viewport_size({"width": 390, "height": 844})
+    page.evaluate("() => document.documentElement.style.scrollBehavior = 'auto'")
 
     assert page.evaluate(
         "() => document.documentElement.scrollWidth <= window.innerWidth"
     )
+    page.evaluate(
+        """() => {
+          const layout = document.querySelector(".workshop-layout");
+          const layoutTop = layout.getBoundingClientRect().top + window.scrollY;
+          window.scrollTo(0, layoutTop + 100);
+        }"""
+    )
+    page.wait_for_timeout(100)
+    mobile_preview = page.locator(".workshop-preview")
+    preview_top = mobile_preview.bounding_box()["y"]
+    assert mobile_preview.locator(".forge-stage").bounding_box()["height"] <= 260
+
+    page.evaluate("() => window.scrollBy(0, 240)")
+    page.wait_for_timeout(100)
+    assert abs(mobile_preview.bounding_box()["y"] - preview_top) <= 2
+
     buttons = page.locator("[data-gallery-state]")
     assert buttons.count() == 7
     assert all(buttons.nth(index).is_visible() for index in range(7))
