@@ -76,7 +76,7 @@ def test_live_demo_starts_synchronized(site_page):
     page, console_errors, page_errors, external_requests = site_page
 
     assert page.locator("#gallery-title").inner_text() == "One state. Four live faces."
-    assert page.locator("[data-gallery-state]").count() == 7
+    assert page.locator("[data-gallery-state]").count() == 8
     assert page.evaluate("() => window.__mascotforge.getGalleryState()") == "thinking"
     assert page.locator("#galleryStateLabel").inner_text() == "THINKING"
     assert page.locator('[data-gallery-state="thinking"]').get_attribute("aria-pressed") == "true"
@@ -116,7 +116,76 @@ def test_state_button_updates_every_live_mascot(site_page):
         "ERROR",
         "ERROR",
     ]
-    assert "Showing Error across every live mascot." in page.locator("#messageBar").inner_text()
+    assert "Showing the Error state across every live mascot." in page.locator("#messageBar").inner_text()
+    assert console_errors == []
+    assert page_errors == []
+
+
+def test_waiting_state_requires_a_visible_human_decision(site_page):
+    page, console_errors, page_errors, _ = site_page
+
+    page.locator('[data-gallery-state="waiting-for-approval"]').dispatch_event("click")
+    page.wait_for_function(
+        "() => window.__mascotforge.getGalleryState() === 'waiting-for-approval'"
+    )
+
+    assert page.locator(".demo-console").get_attribute("data-state") == "waiting-for-approval"
+    assert page.locator("#galleryStateLabel").inner_text() == "NEEDS YOUR APPROVAL"
+    assert page.locator("#galleryStateLabel").evaluate(
+        "element => getComputedStyle(element).backgroundColor"
+    ) == "rgb(245, 207, 98)"
+    assert page.locator(
+        '[data-gallery-state="waiting-for-approval"]'
+    ).get_attribute("aria-pressed") == "true"
+    assert page.locator("#galleryCode").inner_text() == 'play("waiting-for-approval")'
+    assert page.locator("[data-live-state]").all_inner_texts() == [
+        "NEEDS YOUR APPROVAL",
+        "NEEDS YOUR APPROVAL",
+        "NEEDS YOUR APPROVAL",
+        "NEEDS YOUR APPROVAL",
+    ]
+    assert page.evaluate(
+        """() => ["mochiDemoMascot", "bunnyMascot", "patchMascot"]
+          .every((id) => document.getElementById(id).state === "waiting-for-approval")"""
+    )
+    assert page.evaluate(
+        """() => {
+          const orbi = document.getElementById("orbiMascot");
+          return !orbi || orbi.getState() === "listening";
+        }"""
+    )
+    assert console_errors == []
+    assert page_errors == []
+
+
+def test_simulation_pauses_until_the_user_approves(site_page):
+    page, console_errors, page_errors, _ = site_page
+
+    page.locator("#simulateButton").dispatch_event("click")
+    page.wait_for_function(
+        """() => {
+          const state = window.__mascotforge.getState();
+          return state.simulating && state.agentState === "waiting-for-approval";
+        }""",
+        timeout=7000,
+    )
+
+    assert page.locator("#simulateButton .button-label").inner_text() == "Approve & continue"
+    assert page.locator(".forge-stage").get_attribute("data-state") == "waiting-for-approval"
+    assert page.locator("#stageState").inner_text() == "NEEDS YOUR APPROVAL"
+    assert "Your approval is required" in page.locator("#messageBar").inner_text()
+
+    page.locator("#simulateButton").dispatch_event("click")
+    page.wait_for_function(
+        """() => {
+          const state = window.__mascotforge.getState();
+          return !state.simulating && state.agentState === "done";
+        }"""
+    )
+
+    assert page.locator("#simulateButton .button-label").inner_text() == "Simulate agent"
+    assert page.locator("#stageState").inner_text() == "DONE"
+    assert "completed the task" in page.locator("#messageBar").inner_text()
     assert console_errors == []
     assert page_errors == []
 
@@ -185,8 +254,8 @@ def test_live_demo_fits_mobile_without_horizontal_scroll(site_page):
     assert abs(mobile_preview.bounding_box()["y"] - preview_top) <= 2
 
     buttons = page.locator("[data-gallery-state]")
-    assert buttons.count() == 7
-    assert all(buttons.nth(index).is_visible() for index in range(7))
+    assert buttons.count() == 8
+    assert all(buttons.nth(index).is_visible() for index in range(8))
 
     page.locator('[data-gallery-state="done"]').dispatch_event("click")
     page.wait_for_function(

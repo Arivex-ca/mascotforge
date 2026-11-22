@@ -33,7 +33,13 @@
 
   const BUILTIN_STATES = ["idle", "listening", "thinking", "talking", "working", "happy", "done", "error"];
   const CUSTOM_STATES = ["sleeping", "waiting-for-approval"];
-  const GALLERY_STATES = ["idle", "listening", "thinking", "working", "talking", "done", "error"];
+  const GALLERY_STATES = ["idle", "listening", "thinking", "working", "talking", "waiting-for-approval", "done", "error"];
+  const STATE_LABELS = {
+    "waiting-for-approval": "Needs your approval"
+  };
+  const STATE_CONTROL_LABELS = {
+    "waiting-for-approval": "Needs you"
+  };
   const STATE_CAPTIONS = {
     idle: "Idle breathing. Choose a state or run the agent loop.",
     listening: "Listening. Soft rings pull inward while the agent takes input.",
@@ -44,7 +50,7 @@
     done: "Done. A green check confirms the task finished.",
     error: "Error. A shake and red badge make failure visible.",
     sleeping: "Sleeping. Closed eyes and slow breathing show a quiet agent.",
-    "waiting-for-approval": "Waiting for approval. The agent pauses with a focused gaze."
+    "waiting-for-approval": "Waiting for your approval. The agent is paused, not broken."
   };
 
   const ACCESSORY_LABELS = {
@@ -125,12 +131,21 @@
   let showcaseTimer = null;
   let simulationTimer = null;
   let simulationIndex = 0;
+  let simulationAwaitingApproval = false;
   let announceTimer = null;
   let galleryOrbi = null;
   let galleryState = "thinking";
 
   function titleCase(value) {
     return value.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+  }
+
+  function stateLabel(value) {
+    return STATE_LABELS[value] || titleCase(value);
+  }
+
+  function stateControlLabel(value) {
+    return STATE_CONTROL_LABELS[value] || titleCase(value);
   }
 
   function isHex(value) {
@@ -277,7 +292,7 @@
     const box = $("#stateControls");
     box.replaceChildren();
     BUILTIN_STATES.concat(CUSTOM_STATES).forEach((name) => {
-      const label = titleCase(name) + (CUSTOM_STATES.includes(name) ? " +" : "");
+      const label = stateControlLabel(name) + (CUSTOM_STATES.includes(name) ? " +" : "");
       const button = makeButton(label, "state", name, state.agentState === name);
       button.addEventListener("click", () => {
         stopShowcase();
@@ -301,6 +316,8 @@
   function applyGalleryState(name, shouldAnnounce) {
     if (!GALLERY_STATES.includes(name)) return;
     galleryState = name;
+    const label = stateLabel(name);
+    $(".demo-console").dataset.state = name;
 
     ["#mochiDemoMascot", "#bunnyMascot", "#patchMascot"].forEach((selector) => {
       const mascot = $(selector);
@@ -316,9 +333,10 @@
       }
     }
 
-    $("#galleryStateLabel").textContent = name.toUpperCase();
+    $("#galleryStateLabel").textContent = label.toUpperCase();
+    $("#galleryCode").textContent = 'play("' + name + '")';
     $$('[data-live-state]').forEach((badge) => {
-      badge.textContent = name.toUpperCase();
+      badge.textContent = label.toUpperCase();
     });
     $$('[data-gallery-state]').forEach((button) => {
       button.setAttribute("aria-pressed", button.dataset.galleryState === name ? "true" : "false");
@@ -327,7 +345,7 @@
       card.classList.remove("is-reacting");
       requestAnimationFrame(() => card.classList.add("is-reacting"));
     });
-    if (shouldAnnounce !== false) announce("Showing " + titleCase(name) + " across every live mascot.");
+    if (shouldAnnounce !== false) announce("Showing the " + label + " state across every live mascot.");
   }
 
   function syncControls() {
@@ -342,8 +360,10 @@
     $("#customColor").value = hex.toLowerCase();
     $("#hexValue").textContent = hex.toUpperCase();
     $("#simulateButton").setAttribute("aria-pressed", state.simulating ? "true" : "false");
-    $("#simulateButton .button-label").textContent = state.simulating ? "Stop simulation" : "Simulate agent";
-    $("#simulateButton .button-icon").textContent = state.simulating ? "■" : "▶";
+    $("#simulateButton .button-label").textContent = simulationAwaitingApproval
+      ? "Approve & continue"
+      : state.simulating ? "Stop simulation" : "Simulate agent";
+    $("#simulateButton .button-icon").textContent = simulationAwaitingApproval ? "✓" : state.simulating ? "■" : "▶";
   }
 
   function activeAccessories() {
@@ -362,7 +382,8 @@
       accessory: activeAccessories().join(" ") || "none",
       state: state.agentState
     });
-    $("#stageState").textContent = state.agentState.toUpperCase();
+    $(".forge-stage").dataset.state = state.agentState;
+    $("#stageState").textContent = stateLabel(state.agentState).toUpperCase();
     $("#stageCaption").textContent = STATE_CAPTIONS[state.agentState];
     updateCode();
     if (shouldWriteHash !== false) writeHash();
@@ -404,7 +425,8 @@
   function applyAgentState(name, shouldWriteHash) {
     state.agentState = name;
     $("#workshopMascot").setState(name);
-    $("#stageState").textContent = name.toUpperCase();
+    $(".forge-stage").dataset.state = name;
+    $("#stageState").textContent = stateLabel(name).toUpperCase();
     $("#stageCaption").textContent = STATE_CAPTIONS[name];
     $$("[data-state]", $("#stateControls")).forEach((button) => {
       button.setAttribute("aria-pressed", button.dataset.state === name ? "true" : "false");
@@ -432,21 +454,41 @@
     stopShowcase();
     stopSimulation(false);
     state.simulating = true;
+    simulationAwaitingApproval = false;
     simulationIndex = 0;
-    const sequence = ["listening", "thinking", "working", "talking", "done"];
+    const sequence = ["listening", "thinking", "working", "waiting-for-approval"];
     applyAgentState(sequence[simulationIndex], false);
     simulationTimer = setInterval(() => {
-      simulationIndex = (simulationIndex + 1) % sequence.length;
+      simulationIndex += 1;
       applyAgentState(sequence[simulationIndex], false);
+      if (sequence[simulationIndex] === "waiting-for-approval") {
+        clearInterval(simulationTimer);
+        simulationTimer = null;
+        simulationAwaitingApproval = true;
+        syncControls();
+        writeHash();
+        announce("Agent paused. Your approval is required to continue.");
+      }
     }, 1500);
     syncControls();
     writeHash();
-    announce("Agent simulation running: listening, thinking, working, talking, done.");
+    announce("Agent simulation running: listening, thinking, working, then waiting for you.");
+  }
+
+  function approveSimulation() {
+    if (!state.simulating || !simulationAwaitingApproval) return;
+    simulationAwaitingApproval = false;
+    state.simulating = false;
+    applyAgentState("done", false);
+    syncControls();
+    writeHash();
+    announce("Approved. The agent completed the task.", "success");
   }
 
   function stopSimulation(announceStop) {
     clearInterval(simulationTimer);
     simulationTimer = null;
+    simulationAwaitingApproval = false;
     if (state.simulating) {
       state.simulating = false;
       syncControls();
@@ -552,7 +594,8 @@
       announce("Custom color " + state.color + " selected.");
     });
     $("#simulateButton").addEventListener("click", () => {
-      if (state.simulating) stopSimulation(true);
+      if (simulationAwaitingApproval) approveSimulation();
+      else if (state.simulating) stopSimulation(true);
       else startSimulation();
     });
     $("#copyCodeButton").addEventListener("click", () => {

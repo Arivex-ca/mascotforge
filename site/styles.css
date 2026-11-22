@@ -358,6 +358,17 @@ h1 span {
   color: var(--mint);
 }
 
+.forge-stage[data-state="waiting-for-approval"] {
+  box-shadow:
+    var(--shadow),
+    inset 0 0 0 3px rgba(245, 207, 98, 0.78),
+    inset 0 0 72px rgba(245, 207, 98, 0.1);
+}
+
+.forge-stage[data-state="waiting-for-approval"] .stage-signal-right strong {
+  color: var(--yellow);
+}
+
 #workshopMascot {
   position: absolute;
   z-index: 1;
@@ -840,6 +851,13 @@ pre {
   box-shadow: inset 0 -3px 0 rgba(17, 24, 32, 0.15);
 }
 
+.demo-state-strip button[data-gallery-state="waiting-for-approval"][aria-pressed="true"],
+.demo-console[data-state="waiting-for-approval"] .demo-status strong {
+  border-color: var(--yellow);
+  color: var(--ink);
+  background: var(--yellow);
+}
+
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -894,6 +912,16 @@ pre {
   font: 900 0.59rem var(--mono);
   letter-spacing: 0.1em;
   backdrop-filter: blur(10px);
+}
+
+.demo-console[data-state="waiting-for-approval"] .gallery-visual {
+  box-shadow: inset 0 0 0 4px rgba(245, 207, 98, 0.88);
+}
+
+.demo-console[data-state="waiting-for-approval"] .gallery-badge {
+  border-color: rgba(17, 24, 32, 0.28);
+  background: var(--yellow);
+  box-shadow: 0 0 0 5px rgba(245, 207, 98, 0.24);
 }
 
 .gallery-runtime-message {

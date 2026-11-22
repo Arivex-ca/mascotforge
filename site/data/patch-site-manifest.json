@@ -55,10 +55,16 @@
       "bob": 0
     },
     "waiting-for-approval": {
-      "like": "thinking",
-      "lid": 0.62,
+      "like": "listening",
+      "gaze": [
+        0,
+        0
+      ],
+      "lid": 0.92,
       "breath": 3,
-      "bob": 0
+      "bob": 0,
+      "badge": "exclamation",
+      "badgeColor": "#F5CF62"
     }
   },
   "engine_accessories": {
