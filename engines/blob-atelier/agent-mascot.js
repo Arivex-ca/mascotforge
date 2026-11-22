@@ -57,7 +57,7 @@ function defineState(name, spec){
     settings.orbit=v.slice();
   }
   if(own(spec,'expression')){ if(['none','happy','chevrons'].indexOf(spec.expression)<0) return stateWarn(name,'"expression" must be "none", "happy", or "chevrons".'); settings.expression=spec.expression; }
-  if(own(spec,'badge')){ if(['none','check','exclamation'].indexOf(spec.badge)<0) return stateWarn(name,'"badge" must be "none", "check", or "exclamation".'); settings.badge=spec.badge; }
+  if(own(spec,'badge')){ if(['none','check','exclamation','pause'].indexOf(spec.badge)<0) return stateWarn(name,'"badge" must be "none", "check", "exclamation", or "pause".'); settings.badge=spec.badge; }
   if(own(spec,'badgeColor')){ if(typeof spec.badgeColor!=='string' || !/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(spec.badgeColor)) return stateWarn(name,'"badgeColor" must be a 3- or 6-digit hex color such as "#30C77B".'); settings.badgeColor=spec.badgeColor; }
   if(own(spec,'accessory')){ if(['none','rings','dots','orbit'].indexOf(spec.accessory)<0) return stateWarn(name,'"accessory" must be "none", "rings", "dots", or "orbit".'); settings.accessory=spec.accessory; }
   for(i=0;i<keys.length;i++){ k=keys[i]; if(k!=='like' && !own(settings,k) && own(spec,k)) settings[k]=spec[k]; }
@@ -1353,9 +1353,11 @@ class AgentMascot extends HTMLElement {
     var bxp=hw*0.68+bx, byp=top+8+by;
     this.badge.setAttribute('transform','translate('+bxp.toFixed(1)+' '+byp.toFixed(1)+') scale('+bs.toFixed(3)+')');
     var badge=own(x,'badge')?x.badge:(s==='error'?'exclamation':'check');
-    this.badgeC.setAttribute('fill',x.badgeColor||(badge==='exclamation'?'#FF5A4E':'#30C77B'));
+    this.badge.setAttribute('data-badge-kind',badge);
+    this.badgeC.setAttribute('fill',x.badgeColor||(badge==='exclamation'?'#FF5A4E':badge==='pause'?'#F5CF62':'#30C77B'));
     if(badge==='exclamation'){ this.badgeP.setAttribute('d','M0,-7.5L0,1.5'); this.badgeDot.style.display=''; this.badgeDot.setAttribute('cy','6.6'); }
     else if(badge==='check'){ this.badgeP.setAttribute('d','M-6,0.5L-1.8,4.6L6.2,-4.2'); this.badgeDot.style.display='none'; }
+    else if(badge==='pause'){ this.badgeP.setAttribute('d','M-4,-6L-4,6M4,-6L4,6'); this.badgeDot.style.display='none'; }
     else { this.badgeP.setAttribute('d',''); this.badgeDot.style.display='none'; }
     // sparkles
     var sp=this.sparks, dt0=0;

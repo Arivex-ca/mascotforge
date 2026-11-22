@@ -369,6 +369,73 @@ h1 span {
   color: var(--yellow);
 }
 
+.approval-gate {
+  position: absolute;
+  z-index: 4;
+  right: 50%;
+  bottom: 104px;
+  display: flex;
+  padding: 9px 13px 9px 9px;
+  border: 1px solid rgba(245, 207, 98, 0.72);
+  border-radius: 999px;
+  align-items: center;
+  gap: 10px;
+  color: var(--cream);
+  background: rgba(17, 24, 32, 0.9);
+  box-shadow: 0 0 0 0 rgba(245, 207, 98, 0);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(50%, 12px) scale(0.94);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.approval-gate-icon {
+  display: inline-flex;
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--yellow);
+}
+
+.approval-gate-icon i {
+  display: block;
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+
+.approval-gate strong,
+.approval-gate small {
+  display: block;
+  line-height: 1.12;
+}
+
+.approval-gate strong {
+  color: var(--yellow);
+  font: 900 0.65rem var(--mono);
+  letter-spacing: 0.09em;
+}
+
+.approval-gate small {
+  margin-top: 3px;
+  color: #d8e0e6;
+  font: 700 0.65rem var(--body);
+}
+
+.forge-stage[data-state="waiting-for-approval"] .approval-gate {
+  opacity: 1;
+  transform: translate(50%, 0) scale(1);
+  animation: approval-signal 1.8s ease-in-out infinite;
+}
+
+@keyframes approval-signal {
+  50% { box-shadow: 0 0 0 9px rgba(245, 207, 98, 0.13); }
+}
+
 #workshopMascot {
   position: absolute;
   z-index: 1;
@@ -918,6 +985,21 @@ pre {
   box-shadow: inset 0 0 0 4px rgba(245, 207, 98, 0.88);
 }
 
+.demo-console[data-state="waiting-for-approval"] .gallery-visual::before {
+  position: absolute;
+  z-index: 4;
+  right: 14px;
+  bottom: 14px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  content: "Ⅱ  ACTION REQUIRED";
+  color: var(--ink);
+  background: var(--yellow);
+  box-shadow: 0 0 0 5px rgba(245, 207, 98, 0.2);
+  font: 900 0.58rem var(--mono);
+  letter-spacing: 0.08em;
+}
+
 .demo-console[data-state="waiting-for-approval"] .gallery-badge {
   border-color: rgba(17, 24, 32, 0.28);
   background: var(--yellow);
@@ -1292,6 +1374,8 @@ footer > a {
   .workshop-preview .state-orbit { display: none; }
   .workshop-preview .stage-actions { bottom: 14px; padding: 0 12px; }
   .workshop-preview .stage-caption { display: none; }
+  .workshop-preview .approval-gate { bottom: 68px; }
+  .workshop-preview .approval-gate small { display: none; }
   .button { min-height: 44px; padding: 10px 14px; font-size: 0.78rem; }
   .control-deck { padding: 20px 14px; border-radius: 23px; }
   .deck-heading, .section-heading { display: block; }

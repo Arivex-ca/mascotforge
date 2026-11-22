@@ -133,6 +133,24 @@ def test_v2_accepts_animal_named_blob_and_custom_blob():
     assert custom["shape"].startswith("custom-") and len(custom["points"]) == 72
 
 
+def test_v2_accepts_pause_badge_for_human_approval():
+    waiting = copy.deepcopy(ANIMAL_V2)
+    waiting["states"] = [
+        {
+            "name": "waiting-for-approval",
+            "like": "idle",
+            "gaze": [0, 0],
+            "badge": "pause",
+            "badgeColor": "#F5CF62",
+        }
+    ]
+
+    report = blob.check_spec(waiting)
+    assert report["ok"], report["issues"]
+    compiled = blob.compile_spec(waiting)
+    assert compiled["states"]["waiting-for-approval"]["badge"] == "pause"
+
+
 def test_v1_remains_valid_and_compiles_without_v2_declarations():
     compiled = blob.compile_spec(HORNED)
     assert compiled["series"] == "blob"

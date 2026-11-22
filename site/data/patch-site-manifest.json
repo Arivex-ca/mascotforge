@@ -55,16 +55,18 @@
       "bob": 0
     },
     "waiting-for-approval": {
-      "like": "listening",
+      "like": "idle",
       "gaze": [
         0,
         0
       ],
-      "lid": 0.92,
-      "breath": 3,
+      "lid": 1,
+      "eye": 1.18,
+      "breath": 5,
       "bob": 0,
-      "badge": "exclamation",
-      "badgeColor": "#F5CF62"
+      "badge": "pause",
+      "badgeColor": "#F5CF62",
+      "accessory": "none"
     }
   },
   "engine_accessories": {
