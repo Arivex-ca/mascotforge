@@ -167,6 +167,7 @@
             <button type="button" data-gallery-state="thinking" aria-pressed="true">Think</button>
             <button type="button" data-gallery-state="working" aria-pressed="false">Work</button>
             <button type="button" data-gallery-state="talking" aria-pressed="false">Talk</button>
+            <button type="button" data-gallery-state="waiting-for-approval" aria-pressed="false">Needs you</button>
             <button type="button" data-gallery-state="done" aria-pressed="false">Done</button>
             <button type="button" data-gallery-state="error" aria-pressed="false">Error</button>
           </div>
@@ -208,7 +209,7 @@
           </article>
         </div>
 
-        <p class="demo-callout"><code>play("thinking")</code><span>One call updates every live mascot above.</span></p>
+        <p class="demo-callout"><code id="galleryCode">play("thinking")</code><span>One call updates every live mascot above.</span></p>
       </div>
 
       <article class="video-proof">
