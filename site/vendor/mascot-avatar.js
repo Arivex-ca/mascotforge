@@ -71,7 +71,7 @@ const STATE_ALIASES = {
   celebrating: ["happy", "done"],
   done: ["celebrating", "happy"],
   clicked: ["happy", "celebrating"],
-  "waiting-for-approval": ["listening"],
+  "waiting-for-approval": ["idle"],
 };
 
 const engineScripts = new Map(); // src -> Promise, one load per page

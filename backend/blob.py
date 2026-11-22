@@ -428,7 +428,7 @@ def _validate_states(value: object, issues: list[dict]) -> None:
                     settings["orbit"] = orbit
         choices = {
             "expression": {"none", "happy", "chevrons"},
-            "badge": {"none", "check", "exclamation"},
+            "badge": {"none", "check", "exclamation", "pause"},
             "accessory": {"none", "rings", "dots", "orbit"},
         }
         for key, allowed in choices.items():

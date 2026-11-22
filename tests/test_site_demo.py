@@ -151,8 +151,17 @@ def test_waiting_state_requires_a_visible_human_decision(site_page):
     assert page.evaluate(
         """() => {
           const orbi = document.getElementById("orbiMascot");
-          return !orbi || orbi.getState() === "listening";
+          return !orbi || orbi.getState() === "idle";
         }"""
+    )
+    page.wait_for_timeout(350)
+    assert page.evaluate(
+        """() => ["mochiDemoMascot", "bunnyMascot", "patchMascot"]
+          .every((id) => document.getElementById(id).shadowRoot
+            .querySelector('[data-badge-kind="pause"]'))"""
+    )
+    assert "ACTION REQUIRED" in page.locator(".gallery-visual").first.evaluate(
+        "element => getComputedStyle(element, '::before').content"
     )
     assert console_errors == []
     assert page_errors == []
@@ -172,6 +181,12 @@ def test_simulation_pauses_until_the_user_approves(site_page):
 
     assert page.locator("#simulateButton .button-label").inner_text() == "Approve & continue"
     assert page.locator(".forge-stage").get_attribute("data-state") == "waiting-for-approval"
+    page.wait_for_function(
+        "() => getComputedStyle(document.querySelector('.approval-gate')).opacity === '1'"
+    )
+    assert page.locator(".approval-gate").evaluate(
+        "element => getComputedStyle(element).opacity"
+    ) == "1"
     assert page.locator("#stageState").inner_text() == "NEEDS YOUR APPROVAL"
     assert "Your approval is required" in page.locator("#messageBar").inner_text()
 
@@ -184,6 +199,12 @@ def test_simulation_pauses_until_the_user_approves(site_page):
     )
 
     assert page.locator("#simulateButton .button-label").inner_text() == "Simulate agent"
+    page.wait_for_function(
+        "() => getComputedStyle(document.querySelector('.approval-gate')).opacity === '0'"
+    )
+    assert page.locator(".approval-gate").evaluate(
+        "element => getComputedStyle(element).opacity"
+    ) == "0"
     assert page.locator("#stageState").inner_text() == "DONE"
     assert "completed the task" in page.locator("#messageBar").inner_text()
     assert console_errors == []
